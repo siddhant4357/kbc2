@@ -1,0 +1,60 @@
+const User = require('../models/User');
+
+const loginOrRegister = async (req, res) => {
+  const { username, passcode } = req.body;
+  
+  try {
+    let user = await User.findOne({ username });
+    
+    if (!user) {
+      // Create new user
+      user = new User({
+        username,
+        passcode,
+        isAdmin: username === 'admin' && passcode === '1234' // hardcoded admin credentials
+      });
+      await user.save();
+    } else {
+      // Verify passcode
+      if (user.passcode !== passcode) {
+        return res.status(401).json({ message: 'Invalid passcode' });
+      }
+    }
+    
+    res.json({ 
+      user: {
+        username: user.username,
+        isAdmin: user.isAdmin
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({ isAdmin: false });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching users' });
+  }
+};
+
+const deleteAllUsers = async (req, res) => {
+  try {
+    await User.deleteMany({ isAdmin: false });
+    // Get io instance and emit force logout event
+    const io = req.app.get('io');
+    io.emit('forceLogout');
+    res.json({ message: 'All users deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting users' });
+  }
+};
+
+module.exports = { 
+  loginOrRegister,
+  getAllUsers,
+  deleteAllUsers
+};

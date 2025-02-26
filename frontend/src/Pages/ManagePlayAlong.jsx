@@ -28,9 +28,10 @@ const ManagePlayAlong = () => {
 
     // Use environment variable for socket connection
     const newSocket = io(SOCKET_URL, {
-      // Add connection options for production
-      transports: ['websocket'],
-      secure: process.env.NODE_ENV === 'production'
+      transports: ['websocket', 'polling'], // Fallback to polling if websocket fails
+      secure: process.env.NODE_ENV === 'production',
+      reconnection: true,
+      reconnectionAttempts: 5
     });
     
     setSocket(newSocket);

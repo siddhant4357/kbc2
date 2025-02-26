@@ -25,6 +25,8 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: process.env.NODE_ENV === 'development'
+    sourcemap: process.env.NODE_ENV === 'development',
+    target: 'es2015', // Ensures compatibility with older browsers
+    polyfillDynamicImport: true,
   }
 })

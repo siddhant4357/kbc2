@@ -13,6 +13,7 @@
 
 body {
   font-family: var(--font-primary);
+  background: #000B3E; /* Fallback */
   background: var(--kbc-dark-blue);
   background-image: radial-gradient(circle at center, var(--kbc-purple) 0%, var(--kbc-dark-blue) 100%);
   color: var(--kbc-light);
@@ -29,6 +30,7 @@ body {
 }
 
 .animated-gradient {
+  background: -webkit-linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
   background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
   background-size: 400% 400%;
   animation: gradientBG 15s ease infinite;
@@ -36,9 +38,14 @@ body {
 
 .glass-effect {
   background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 1rem;
+}
+
+.no-backdrop-filter .glass-effect {
+  background: rgba(0, 11, 62, 0.95); /* Fallback for no backdrop-filter support */
 }
 
 /* Existing animations */
@@ -190,6 +197,16 @@ body {
 
 .kbc-card {
   background: linear-gradient(135deg, var(--kbc-dark-blue), var(--kbc-purple));
+  -webkit-clip-path: polygon(
+    5% 0,
+    95% 0,
+    100% 5%,
+    100% 95%,
+    95% 100%,
+    5% 100%,
+    0 95%,
+    0 5%
+  );
   clip-path: polygon(
     5% 0,
     95% 0,
@@ -216,6 +233,7 @@ body {
 }
 
 .kbc-button {
+  background: #1C3FAA; /* Fallback */
   background: linear-gradient(135deg, var(--kbc-light-blue), var(--kbc-blue));
   color: var(--kbc-light);
   border: 1px solid var(--kbc-gold);
@@ -284,6 +302,14 @@ body {
 .kbc-option {
   position: relative;
   background: linear-gradient(135deg, var(--kbc-dark-blue), var(--kbc-blue));
+  -webkit-clip-path: polygon(
+    10% 0,
+    90% 0,
+    100% 50%,
+    90% 100%,
+    10% 100%,
+    0 50%
+  );
   clip-path: polygon(
     10% 0,
     90% 0,
@@ -779,6 +805,7 @@ body {
 
 .scrollbar-thin {
   scrollbar-width: thin;
+  -ms-overflow-style: none; /* IE and Edge */
   scrollbar-color: var(--kbc-gold) transparent;
 }
 
@@ -855,6 +882,16 @@ body {
 
 .question-box {
   background: linear-gradient(135deg, var(--kbc-dark-blue), var(--kbc-purple));
+  -webkit-clip-path: polygon(
+    5% 0,
+    95% 0,
+    100% 5%,
+    100% 95%,
+    95% 100%,
+    5% 100%,
+    0 95%,
+    0 5%
+  );
   clip-path: polygon(
     5% 0,
     95% 0,

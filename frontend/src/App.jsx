@@ -18,6 +18,7 @@ import Leaderboard from './Pages/LeaderBoard';
 import PlayAlong from './Pages/Playalong';
 import JoinGame from './Pages/JoinGame';
 import JoinQuestions from './Pages/JoinQuestions';
+import GameRules from './Pages/GameRules';
 
 const App = () => {
   return (
@@ -54,6 +55,12 @@ const App = () => {
         <Route path="/join-questions/:id" element={
           <ProtectedRoute>
             <JoinQuestions />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/game-rules/:bankId" element={
+          <ProtectedRoute>
+            <GameRules />
           </ProtectedRoute>
         } />
 

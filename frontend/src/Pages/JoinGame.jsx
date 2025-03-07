@@ -56,7 +56,8 @@ const JoinGame = () => {
       });
 
       if (response.ok) {
-        navigate(`/join-questions/${selectedBank._id}`);
+        // Instead of navigating directly to join-questions
+        navigate(`/game-rules/${selectedBank._id}`);
       } else {
         const data = await response.json();
         setError(data.message);

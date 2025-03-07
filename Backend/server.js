@@ -1,3 +1,5 @@
+//net start MongoDB for connecting backend in cmd 
+
 const express = require('express');
 const cors = require('cors');
 const { createServer } = require('http');

@@ -1060,3 +1060,55 @@ body {
 .bg-kbc-gold {
   background-color: var(--kbc-gold);
 }
+
+/* Audio playing indicator */
+.audio-playing {
+  position: relative;
+}
+
+.audio-playing::after {
+  content: '🔊';
+  position: absolute;
+  top: -1rem;
+  right: -1rem;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* Volume slider styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  background: var(--kbc-gold);
+  opacity: 0.3;
+  height: 4px;
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -6px;
+  background-color: var(--kbc-gold);
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+}
+
+input[type="range"]:focus {
+  outline: none;
+}
+
+input[type="range"]:hover::-webkit-slider-thumb {
+  box-shadow: 0 0 10px var(--kbc-gold);
+}

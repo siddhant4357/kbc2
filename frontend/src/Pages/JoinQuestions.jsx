@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import questionTune from '../assets/question_tune.wav';
+import timerSound from '../assets/kbc_time.mp3';
+import timerEndSound from '../assets/kbc_timer_finish.mp4';
+import correctAnswerSound from '../assets/kbc_correct_ans.wav';
+import wrongAnswerSound from '../assets/kbc_wrong_ans.wav';
 
 
 // Add prize levels (from lowest to highest)
@@ -21,11 +26,94 @@ const PRIZE_LEVELS = [
   "₹1,00,00,000"
 ];
 
+const AudioIndicator = ({ isPlaying }) => (
+  <div className={`audio-playing ${isPlaying ? 'visible' : 'invisible'}`}>
+    <span className="absolute -top-4 -right-4 text-kbc-gold animate-pulse">
+      🔊
+    </span>
+  </div>
+);
+
+// Add this component at the top level
+const VolumeControl = ({ volume, onChange }) => (
+  <div className="flex items-center gap-2 mt-4 px-2">
+    <span className="text-kbc-gold text-sm">
+      {volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}
+    </span>
+    <input
+      type="range"
+      min="0"
+      max="1"
+      step="0.1"
+      value={volume}
+      onChange={(e) => onChange(parseFloat(e.target.value))}
+      className="w-full h-1 bg-kbc-gold/30 rounded-lg appearance-none cursor-pointer"
+    />
+    <span className="text-kbc-gold text-xs">
+      {Math.round(volume * 100)}%
+    </span>
+  </div>
+);
+
+// Add this component near other utility components at the top
+const RestartSoundButton = ({ onClick }) => (
+  <button
+    onClick={onClick}
+    className="fixed bottom-4 right-4 kbc-button w-12 h-12 flex items-center justify-center text-xl rounded-full shadow-glow z-50"
+    title="Restart Sound"
+  >
+    🔄
+  </button>
+);
+
+// Modify the utility function at the top
+const playAudioWithChecks = async (audio) => {
+  try {
+    if (!audio.paused) {
+      await audio.pause();
+      // Add small delay before playing new sound
+      await new Promise(resolve => setTimeout(resolve, 50));
+      audio.currentTime = 0;
+    }
+    await audio.play();
+  } catch (error) {
+    // Only log errors that aren't abort errors
+    if (error.name !== 'AbortError') {
+      console.error("Error playing audio:", error);
+    }
+  }
+};
+
+// Add a new utility function for stopping audio
+const stopAudio = async (audio) => {
+  try {
+    if (!audio.paused) {
+      await audio.pause();
+      audio.currentTime = 0;
+    }
+  } catch (error) {
+    // Ignore abort errors
+    if (error.name !== 'AbortError') {
+      console.error("Error stopping audio:", error);
+    }
+  }
+};
+
+// Add a utility function to stop all sounds
+const stopAllSounds = async () => {
+  const sounds = [timerAudio, correctAudio, wrongAudio, questionAudio, timerEndAudio];
+  await Promise.all(sounds.map(audio => stopAudio(audio)));
+};
+
 const JoinQuestions = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [questionBank, setQuestionBank] = useState(null);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(() => {
+    // Try to get saved index from localStorage
+    const savedIndex = localStorage.getItem(`questionIndex_${id}`);
+    return savedIndex ? parseInt(savedIndex) : 0;
+  });
   const [showOptions, setShowOptions] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -50,6 +138,34 @@ const JoinQuestions = () => {
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const [hiddenOptions, setHiddenOptions] = useState([]);
   const [isTimerStopped, setIsTimerStopped] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [isSoundPaused, setIsSoundPaused] = useState(false);
+  
+  // Add audio states
+  const [timerAudio] = useState(() => {
+    const audio = new Audio(timerSound);
+    audio.volume = 0.5;
+    return audio;
+  });
+
+  const [questionAudio] = useState(() => {
+    const audio = new Audio(questionTune);
+    audio.volume = 0.5;
+    return audio;
+  });
+
+  const [timerEndAudio] = useState(new Audio(timerEndSound));
+  const [correctAudio] = useState(new Audio(correctAnswerSound));
+  const [wrongAudio] = useState(new Audio(wrongAnswerSound));
+  const [volume, setVolume] = useState(0.5);
+
+  // Update volume control to exclude lockAudio
+  const updateVolume = (newVolume) => {
+    setVolume(newVolume);
+    [timerAudio, timerEndAudio, questionAudio, correctAudio, wrongAudio].forEach(audio => {
+      audio.volume = newVolume;
+    });
+  };
 
   useEffect(() => {
     const fetchQuestionBank = async () => {
@@ -64,6 +180,10 @@ const JoinQuestions = () => {
         
         const data = await response.json();
         setQuestionBank(data);
+        // Set current question when question bank is loaded
+        if (data?.questions?.length > 0) {
+          setCurrentQuestion(data.questions[currentQuestionIndex]);
+        }
       } catch (error) {
         setError('Failed to load questions');
       } finally {
@@ -72,7 +192,7 @@ const JoinQuestions = () => {
     };
 
     fetchQuestionBank();
-  }, [id]);
+  }, [id, currentQuestionIndex]);
 
   useEffect(() => {
     let timer;
@@ -96,17 +216,118 @@ const JoinQuestions = () => {
         setRedirectTimer(prev => prev - 1);
       }, 1000);
     } else if (redirectTimer === 0) {
+      // Clear saved index when game ends
+      localStorage.removeItem(`questionIndex_${id}`);
       navigate('/dashboard');
     }
     return () => clearInterval(timer);
-  }, [showGameEndPopup, redirectTimer, navigate]);
+  }, [showGameEndPopup, redirectTimer, navigate, id]);
 
-  const handleShowOptions = () => {
-    setTimeLeft(customTimerInput);
-    setTimerDuration(customTimerInput);
-    setShowOptions(true);
-    setTimerStarted(true);
+  useEffect(() => {
+    // Clean up function for all audio
+    return () => {
+      timerAudio.pause();
+      timerEndAudio.pause();
+      questionAudio.pause();
+      correctAudio.pause();
+      wrongAudio.pause();
+      
+      timerAudio.currentTime = 0;
+      timerEndAudio.currentTime = 0;
+      questionAudio.currentTime = 0;
+      correctAudio.currentTime = 0;
+      wrongAudio.currentTime = 0;
+    };
+  }, [timerAudio, timerEndAudio, questionAudio, correctAudio, wrongAudio]);
+
+  // Add effect for timer end
+  useEffect(() => {
+    if (timeLeft === 0) {
+      timerAudio.pause();
+      timerAudio.currentTime = 0;
+      timerEndAudio.play();
+      
+      // Stop timer end sound after 3 seconds
+      setTimeout(() => {
+        timerEndAudio.pause();
+        timerEndAudio.currentTime = 0;
+      }, 3000);
+    }
+  }, [timeLeft, timerAudio, timerEndAudio]);
+
+  // Play question tune when new question appears
+  useEffect(() => {
+    // Only play if questionBank is loaded and currentQuestion exists
+    // and it's a new question (not just showing options)
+    if (questionBank && currentQuestion && !showOptions) {
+      const playQuestionSound = async () => {
+        // Stop all other sounds first
+        [timerAudio, correctAudio, wrongAudio].forEach(audio => {
+          audio.pause();
+          audio.currentTime = 0;
+        });
+        
+        // Add a small delay before playing new sound
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await playAudioWithChecks(questionAudio);
+      };
+
+      playQuestionSound();
+    }
+
+    return () => {
+      if (!questionAudio.paused) {
+        questionAudio.pause();
+        questionAudio.currentTime = 0;
+      }
+    };
+  }, [currentQuestionIndex, questionAudio, questionBank, currentQuestion, showOptions]);
+
+  useEffect(() => {
+    if (questionBank?.questions) {
+      setCurrentQuestion(questionBank.questions[currentQuestionIndex]);
+    }
+  }, [questionBank, currentQuestionIndex]);
+
+  // Add this effect to detect page visibility changes
+useEffect(() => {
+  const handleVisibilityChange = () => {
+    if (document.hidden) {
+      stopAllSounds();
+      setIsSoundPaused(true);
+    }
   };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  
+  return () => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+}, []);
+
+// Add this effect to save index when it changes
+useEffect(() => {
+  localStorage.setItem(`questionIndex_${id}`, currentQuestionIndex);
+}, [currentQuestionIndex, id]);
+
+// Modify handleShowOptions function
+const handleShowOptions = async () => {
+  setTimeLeft(customTimerInput);
+  setTimerDuration(customTimerInput);
+  setShowOptions(true);
+  setTimerStarted(true);
+  
+  // Stop question sound
+  if (!questionAudio.paused) {
+    await questionAudio.pause();
+    questionAudio.currentTime = 0;
+  }
+  
+  // Start timer sound after a small delay
+  await new Promise(resolve => setTimeout(resolve, 100));
+  timerAudio.loop = true;
+  await playAudioWithChecks(timerAudio);
+};
 
   const handleOptionSelect = (option) => {
     // Remove the negative condition that was causing the issue
@@ -115,18 +336,32 @@ const JoinQuestions = () => {
     }
   };
 
-  // Modify the handleLockAnswer function
-  const handleLockAnswer = () => {
-    if (selectedOption && !lockedAnswer && !showAnswer && timeLeft > 0) {
-      setLockedAnswer(selectedOption);
-      setTimerStarted(false);
-      setShowAnswer(true);
-      
-      if (selectedOption !== currentQuestion.correctAnswer) {
-        setTimeExpired(false); // Don't set timeExpired for wrong answers
+  // Update handleLockAnswer function
+const handleLockAnswer = async () => {
+  if (selectedOption && !lockedAnswer && !showAnswer && timeLeft > 0) {
+    setLockedAnswer(selectedOption);
+    setTimerStarted(false);
+    setShowAnswer(true);
+    
+    // Stop all playing sounds
+    await Promise.all([timerAudio, questionAudio].map(async (audio) => {
+      if (!audio.paused) {
+        await audio.pause();
+        audio.currentTime = 0;
       }
+    }));
+    
+    // Add delay before playing result sound
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Play correct/wrong sound
+    if (selectedOption === currentQuestion.correctAnswer) {
+      await playAudioWithChecks(correctAudio);
+    } else {
+      await playAudioWithChecks(wrongAudio);
     }
-  };
+  }
+};
 
   const confirmLockAnswer = () => {
     setLockedAnswer(selectedOption);
@@ -139,24 +374,36 @@ const JoinQuestions = () => {
     }
   };
 
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < questionBank.questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setShowOptions(false);
-      setSelectedOption(null);
-      setShowAnswer(false);
-      setTimerStarted(false);
-      setTimeLeft(timerDuration);
-      setLockedAnswer(null);
-      setTimeExpired(false);
-      setContinuePlaying(false);
-      setHiddenOptions([]);
-      setIsTimerStopped(false); // Reset timer stopped state
-    } else if (lockedAnswer === currentQuestion.correctAnswer) {
-      setGameEndMessage('Congratulations! You have successfully completed the game! 🎉');
-      setShowGameEndPopup(true);
-    }
-  };
+  // Update handleNextQuestion function
+const handleNextQuestion = () => {
+  if (currentQuestionIndex < questionBank.questions.length - 1) {
+    // Stop all current sounds
+    [timerAudio, correctAudio, wrongAudio, questionAudio].forEach(audio => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
+    
+    setCurrentQuestionIndex(prev => prev + 1);
+    setShowOptions(false);
+    setSelectedOption(null);
+    setShowAnswer(false);
+    setTimerStarted(false);
+    setTimeLeft(timerDuration);
+    setLockedAnswer(null);
+    setTimeExpired(false);
+    setContinuePlaying(false);
+    setHiddenOptions([]);
+    setIsTimerStopped(false);
+    
+    // Play question tune for new question
+    questionAudio.play().catch(console.error);
+    
+  } else if (lockedAnswer === currentQuestion?.correctAnswer) {
+    setGameEndMessage('Congratulations! You have successfully completed the game! 🎉');
+    setShowGameEndPopup(true);
+    correctAudio.play();
+  }
+};
 
   const handleLifeline = (lifeline) => {
     setLifelines(prev => ({
@@ -206,9 +453,27 @@ const JoinQuestions = () => {
     setShowQuitConfirm(true);
   };
 
-  const handleQuitGame = () => {
-    navigate('/dashboard');
-  };
+  // Modify handleQuitGame to clear saved state
+const handleQuitGame = () => {
+  localStorage.removeItem(`questionIndex_${id}`);
+  navigate('/dashboard');
+};
+
+  // Add this function in the JoinQuestions component
+const handleRestartSound = async () => {
+  // Stop all current sounds first
+  await stopAllSounds();
+  
+  setIsSoundPaused(false);
+  
+  // Restart appropriate sound based on current game state
+  if (timerStarted && timeLeft > 0) {
+    timerAudio.loop = true;
+    await playAudioWithChecks(timerAudio);
+  } else if (currentQuestion && !showOptions) {
+    await playAudioWithChecks(questionAudio);
+  }
+};
 
   if (loading) return (
     <div className="min-h-screen p-4 flex items-center justify-center">
@@ -226,8 +491,6 @@ const JoinQuestions = () => {
       </div>
     </div>
   );
-
-  const currentQuestion = questionBank?.questions[currentQuestionIndex];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-kbc-dark-blue to-kbc-purple">
@@ -268,6 +531,7 @@ const JoinQuestions = () => {
                   className="kbc-button1 text-xs h-8 py-0.5 px-2 min-w-0 w-auto"
                 >
                   Start
+                  <AudioIndicator isPlaying={timerStarted} />
                 </button>
               </div>
             ) : (
@@ -286,27 +550,11 @@ const JoinQuestions = () => {
                     />
                   </svg>
                   <span className="absolute inset-0 flex items-center justify-center text-base sm:text-xl text-kbc-gold">
-                    {isTimerStopped ? '∞' : formatTime(timeLeft)}
+                    {formatTime(timeLeft)}
                   </span>
                 </div>
-                <button
-                  onClick={() => setIsTimerStopped(true)}
-                  disabled={isTimerStopped}
-                  className={`kbc-button1 text-xs h-8 py-0.5 px-2 min-w-0 w-auto ${
-                    isTimerStopped ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  Stop Timer
-                </button>
               </div>
             )}
-          </div>
-          
-          {/* Right section: Username for mobile */}
-          <div className="block sm:hidden text-right">
-            <p className="text-white font-bold text-sm">
-              {JSON.parse(localStorage.getItem('user'))?.username}
-            </p>
           </div>
         </div>
       </header>
@@ -382,15 +630,17 @@ const JoinQuestions = () => {
           <div className="flex-grow" />
           
           {/* Question container - now separate from options */}
-          <div className="kbc-question-box p-4 sm:p-8 shadow-glow mb-6 max-w-3xl mx-auto w-full">
-            <h2 className="text-2xl text-kbc-gold mb-6">
-              Question {currentQuestionIndex + 1} 
-            </h2>
-            <p className="text-white text-xl">{currentQuestion.question}</p>
-          </div>
+          {currentQuestion && (
+            <div className="kbc-question-box p-4 sm:p-8 shadow-glow mb-6 max-w-3xl mx-auto w-full">
+              <h2 className="text-2xl text-kbc-gold mb-6">
+                Question {currentQuestionIndex + 1} 
+              </h2>
+              <p className="text-white text-xl">{currentQuestion.question}</p>
+            </div>
+          )}
 
           {/* Options container - now with connector lines */}
-          {showOptions && (
+          {showOptions && currentQuestion && (
             <div className="max-w-3xl mx-auto w-full mb-8 relative">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {currentQuestion.options.map((option, index) => (
@@ -586,6 +836,10 @@ const JoinQuestions = () => {
                 </div>
               )).reverse()}
             </div>
+            <VolumeControl 
+              volume={volume}
+              onChange={updateVolume}
+            />
           </div>
         </div>
       </div>
@@ -633,6 +887,11 @@ const JoinQuestions = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Add restart sound button */}
+      {isSoundPaused && (
+        <RestartSoundButton onClick={handleRestartSound} />
       )}
     </div>
   );

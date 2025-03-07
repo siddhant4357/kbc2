@@ -34,27 +34,6 @@ const AudioIndicator = ({ isPlaying }) => (
   </div>
 );
 
-// Add this component at the top level
-const VolumeControl = ({ volume, onChange }) => (
-  <div className="flex items-center gap-2 mt-4 px-2">
-    <span className="text-kbc-gold text-sm">
-      {volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}
-    </span>
-    <input
-      type="range"
-      min="0"
-      max="1"
-      step="0.1"
-      value={volume}
-      onChange={(e) => onChange(parseFloat(e.target.value))}
-      className="w-full h-1 bg-kbc-gold/30 rounded-lg appearance-none cursor-pointer"
-    />
-    <span className="text-kbc-gold text-xs">
-      {Math.round(volume * 100)}%
-    </span>
-  </div>
-);
-
 // Add this component near other utility components at the top
 const RestartSoundButton = ({ onClick }) => (
   <button
@@ -65,45 +44,6 @@ const RestartSoundButton = ({ onClick }) => (
     🔄
   </button>
 );
-
-// Modify the utility function at the top
-const playAudioWithChecks = async (audio) => {
-  try {
-    if (!audio.paused) {
-      await audio.pause();
-      // Add small delay before playing new sound
-      await new Promise(resolve => setTimeout(resolve, 50));
-      audio.currentTime = 0;
-    }
-    await audio.play();
-  } catch (error) {
-    // Only log errors that aren't abort errors
-    if (error.name !== 'AbortError') {
-      console.error("Error playing audio:", error);
-    }
-  }
-};
-
-// Add a new utility function for stopping audio
-const stopAudio = async (audio) => {
-  try {
-    if (!audio.paused) {
-      await audio.pause();
-      audio.currentTime = 0;
-    }
-  } catch (error) {
-    // Ignore abort errors
-    if (error.name !== 'AbortError') {
-      console.error("Error stopping audio:", error);
-    }
-  }
-};
-
-// Add a utility function to stop all sounds
-const stopAllSounds = async () => {
-  const sounds = [timerAudio, correctAudio, wrongAudio, questionAudio, timerEndAudio];
-  await Promise.all(sounds.map(audio => stopAudio(audio)));
-};
 
 const JoinQuestions = () => {
   const { id } = useParams();
@@ -167,6 +107,40 @@ const JoinQuestions = () => {
     });
   };
 
+  // Move audio utility functions inside the component
+  const playAudioWithChecks = async (audio) => {
+    try {
+      if (!audio.paused) {
+        await audio.pause();
+        await new Promise(resolve => setTimeout(resolve, 50));
+        audio.currentTime = 0;
+      }
+      await audio.play();
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error("Error playing audio:", error);
+      }
+    }
+  };
+
+  const stopAudio = async (audio) => {
+    try {
+      if (!audio.paused) {
+        await audio.pause();
+        audio.currentTime = 0;
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error("Error stopping audio:", error);
+      }
+    }
+  };
+
+  const stopAllSounds = async () => {
+    const sounds = [timerAudio, correctAudio, wrongAudio, questionAudio, timerEndAudio];
+    await Promise.all(sounds.filter(Boolean).map(audio => stopAudio(audio)));
+  };
+
   useEffect(() => {
     const fetchQuestionBank = async () => {
       try {
@@ -216,11 +190,16 @@ const JoinQuestions = () => {
         setRedirectTimer(prev => prev - 1);
       }, 1000);
     } else if (redirectTimer === 0) {
+      // Stop all sounds before redirecting
+      stopAllSounds();
       // Clear saved index when game ends
       localStorage.removeItem(`questionIndex_${id}`);
       navigate('/dashboard');
     }
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      stopAllSounds(); // Also stop sounds when component unmounts
+    };
   }, [showGameEndPopup, redirectTimer, navigate, id]);
 
   useEffect(() => {
@@ -431,18 +410,22 @@ const handleNextQuestion = () => {
     setContinuePlaying(true);
   };
 
-  const handleEndGame = () => {
-    // Show different message if completed all questions successfully
-    const isGameCompleted = currentQuestionIndex === questionBank.questions.length - 1 
-      && lockedAnswer === currentQuestion.correctAnswer;
+  // Modify handleEndGame
+const handleEndGame = async () => {
+  // Stop all currently playing sounds
+  await stopAllSounds();
+  
+  // Show different message if completed all questions successfully
+  const isGameCompleted = currentQuestionIndex === questionBank.questions.length - 1 
+    && lockedAnswer === currentQuestion.correctAnswer;
 
-    setGameEndMessage(
-      isGameCompleted 
-        ? 'Congratulations! You have successfully completed the game! 🎉' 
-        : 'Thank you for playing this game!'
-    );
-    setShowGameEndPopup(true);
-  };
+  setGameEndMessage(
+    isGameCompleted 
+      ? 'Congratulations! You have successfully completed the game! 🎉' 
+      : 'Thank you for playing this game!'
+  );
+  setShowGameEndPopup(true);
+};
 
   const formatTime = (seconds) => {
     return seconds.toString().padStart(2, '0');
@@ -453,8 +436,10 @@ const handleNextQuestion = () => {
     setShowQuitConfirm(true);
   };
 
-  // Modify handleQuitGame to clear saved state
-const handleQuitGame = () => {
+  // Modify handleQuitGame
+const handleQuitGame = async () => {
+  // Stop all sounds before quitting
+  await stopAllSounds();
   localStorage.removeItem(`questionIndex_${id}`);
   navigate('/dashboard');
 };
@@ -836,10 +821,6 @@ const handleRestartSound = async () => {
                 </div>
               )).reverse()}
             </div>
-            <VolumeControl 
-              volume={volume}
-              onChange={updateVolume}
-            />
           </div>
         </div>
       </div>

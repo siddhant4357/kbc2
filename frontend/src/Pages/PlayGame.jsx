@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
+import themeAudio from '../assets/kbc_theme.wav';
+import questionTune from '../assets/question_tune.wav';
+import timerSound from '../assets/kbc_time.mp3';
+import correctAnswerSound from '../assets/kbc_correct_ans.wav';
+import wrongAnswerSound from '../assets/kbc_wrong_ans.wav';
+import timerEndSound from '../assets/kbc_timer_finish.mp4';
 
 // Update prize levels (from lowest to highest)
 const PRIZE_LEVELS = [
@@ -41,6 +47,83 @@ const PlayGame = () => {
   const [isTimerExpired, setIsTimerExpired] = useState(false);
   const [isWaiting, setIsWaiting] = useState(true);
 
+  // Add audio states
+  const [themeSound] = useState(() => {
+    const audio = new Audio(themeAudio);
+    audio.volume = 0.5;
+    return audio;
+  });
+
+  const [questionSound] = useState(() => {
+    const audio = new Audio(questionTune);
+    audio.volume = 0.5;
+    return audio;
+  });
+
+  const [timerAudio] = useState(() => {
+    const audio = new Audio(timerSound);
+    audio.volume = 0.5;
+    return audio;
+  });
+
+  const [correctAudio] = useState(() => {
+    const audio = new Audio(correctAnswerSound);
+    audio.volume = 0.5;
+    audio.preload = 'auto';  // Add this line
+    return audio;
+  });
+
+  const [wrongAudio] = useState(() => {
+    const audio = new Audio(wrongAnswerSound);
+    audio.volume = 0.5;
+    audio.preload = 'auto';  // Add this line
+    return audio;
+  });
+
+  const [timerEndAudio] = useState(() => {
+    const audio = new Audio(timerEndSound);
+    audio.volume = 0.5;
+    return audio;
+  });
+
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+  const [isSoundPaused, setIsSoundPaused] = useState(false);
+
+  // Add audio utility functions
+  const stopAllSounds = async () => {
+    [themeSound, questionSound, timerAudio, correctAudio, wrongAudio, timerEndAudio].forEach(audio => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
+  };
+
+  // Handle user interaction for theme music
+  const handleStartExperience = async () => {
+    try {
+      await themeSound.play();
+      themeSound.loop = true;
+      setHasUserInteracted(true);
+    } catch (error) {
+      console.error("Error playing theme:", error);
+      setHasUserInteracted(true);
+    }
+  };
+
+  // Add restart sound handler
+  const handleRestartSound = async () => {
+    if (isWaiting && themeSound) {
+      themeSound.pause();
+      themeSound.currentTime = 0;
+      try {
+        await themeSound.play();
+        themeSound.loop = true;
+        setIsSoundPaused(false);
+      } catch (error) {
+        console.error("Error restarting sound:", error);
+      }
+    }
+  };
+
   const formatTime = (seconds) => {
     if (seconds < 0) return '00';
     return seconds.toString().padStart(2, '0');
@@ -76,31 +159,33 @@ const PlayGame = () => {
     
     newSocket.emit('joinGame', { id });
 
-    newSocket.on('gameState', (state) => {
+    newSocket.on('gameState', async (state) => {
       if (state && state.isActive) {
+        await stopAllSounds(); // Stop theme music when game starts
         setCurrentQuestion(state.currentQuestion);
         setShowOptions(state.showOptions);
         setShowAnswer(state.showAnswer);
         setGameStopped(false);
-        setIsWaiting(false); // Game is active, not waiting
+        setIsWaiting(false);
       } else {
         // Reset everything if game is not active
+        await stopAllSounds();
+        if (hasUserInteracted) {
+          themeSound.play().catch(console.error);
+        }
         setCurrentQuestion(null);
         setShowOptions(false);
         setShowAnswer(false);
         setSelectedOption(null);
         setLockedAnswer(null);
         setGameStopped(false);
-        setIsWaiting(true); // Game is not active, show waiting state
+        setIsWaiting(true);
       }
     });
 
-    newSocket.on('gameToken', (token) => {
-      setGameToken(token);
-      localStorage.setItem(`game_${id}_token`, token);
-    });
-
-    newSocket.on('questionUpdate', (data) => {
+    newSocket.on('questionUpdate', async (data) => {
+      await stopAllSounds();
+      questionSound.play().catch(console.error);
       setCurrentQuestion({
         ...data,
         // Ensure questionIndex is a number and starts from 0
@@ -118,18 +203,51 @@ const PlayGame = () => {
       setCurrentPrizeIndex(newPrizeIndex);
     });
 
-    newSocket.on('showOptions', (data) => {
+    newSocket.on('showOptions', async (data) => {
+      await stopAllSounds();
+      timerAudio.loop = true;
+      timerAudio.play().catch(console.error);
       setShowOptions(true);
       setTimerStartedAt(data.timerStartedAt);
       setTimerDuration(data.timerDuration);
       setIsTimerExpired(false);
     });
 
-    newSocket.on('showAnswer', () => {
-      setShowAnswer(true);
+    newSocket.on('showAnswer', async () => {
+      try {
+        // First stop all sounds
+        await stopAllSounds();
+        
+        // Add a small delay
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Make sure we have both currentQuestion and selectedOption
+        if (currentQuestion && selectedOption) {
+          // Play appropriate sound based on answer
+          if (selectedOption === currentQuestion.correctAnswer) {
+            correctAudio.currentTime = 0;
+            await correctAudio.play();
+          } else {
+            wrongAudio.currentTime = 0;
+            await wrongAudio.play();
+          }
+        }
+        
+        setShowAnswer(true);
+      } catch (error) {
+        console.error("Error playing answer sound:", error);
+        setShowAnswer(true);
+      }
     });
 
-    newSocket.on('gameStop', () => {
+    newSocket.on('gameToken', (token) => {
+      setGameToken(token);
+      localStorage.setItem(`game_${id}_token`, token);
+    });
+
+    newSocket.on('gameStop', async () => {
+      // Stop all sounds when game stops
+      await stopAllSounds();
       setGameStopped(true);
       setCurrentQuestion(null);
       setShowOptions(false);
@@ -154,12 +272,43 @@ const PlayGame = () => {
     setSocket(newSocket);
 
     return () => {
+      stopAllSounds(); // Stop all sounds on unmount
       newSocket.disconnect();
       if (!gameToken) {
         localStorage.removeItem(`game_${id}_token`);
       }
     };
   }, [id, navigate]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopAllSounds();
+        setIsSoundPaused(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // Add this useEffect for preloading sounds
+  useEffect(() => {
+    const preloadSounds = async () => {
+      try {
+        await Promise.all([
+          correctAudio.load(),
+          wrongAudio.load()
+        ]);
+      } catch (error) {
+        console.error("Error preloading sounds:", error);
+      }
+    };
+
+    preloadSounds();
+  }, [correctAudio, wrongAudio]);
 
   const handleOptionSelect = (option) => {
     // Allow selecting options if answer isn't locked and answer isn't shown
@@ -189,7 +338,9 @@ const PlayGame = () => {
     setShowExitConfirm(true);
   };
 
-  const confirmExit = () => {
+  const confirmExit = async () => {
+    // Stop all sounds before disconnecting
+    await stopAllSounds();
     socket.disconnect();
     localStorage.removeItem(`game_${id}_token`);
     navigate('/dashboard');
@@ -199,59 +350,86 @@ const PlayGame = () => {
   if (isWaiting) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-kbc-dark-blue to-kbc-purple flex items-center justify-center">
-        {/* Add header with exit button */}
-        <header className="fixed top-0 left-0 right-0 flex justify-between items-center p-3 bg-kbc-dark-blue/80 backdrop-blur-[4px] z-10">
-          <button 
-            onClick={handleExitGame}
-            className="kbc-button bg-red-600 hover:bg-red-700 w-10 h-8 text-xs"
-          >
-            QUIT
-          </button>
-          <img 
-            src="/src/assets/kbc-logo.png" 
-            alt="KBC Logo" 
-            className="h-8"
-          />
-        </header>
-
-        <div className="kbc-card p-8 text-center animate-pulse">
-          <img 
-            src="/src/assets/kbc-logo.png" 
-            alt="KBC Logo" 
-            className="w-24 h-24 mx-auto mb-6"
-          />
-          <h2 className="text-2xl text-kbc-gold font-bold mb-4">
-            Waiting for Admin to Start the Game
-          </h2>
-          <p className="text-gray-300 mb-6">
-            Please stay on this screen. The game will begin automatically.
-          </p>
-        </div>
-
-        {/* Exit Confirmation Modal */}
-        {showExitConfirm && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="kbc-card w-full max-w-md p-4 sm:p-6">
-              <h2 className="text-xl font-bold text-kbc-gold mb-4">Confirm Exit</h2>
-              <p className="text-gray-300 mb-6">
-                Are you sure you want to leave the game?
-              </p>
-              <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4">
-                <button
-                  onClick={() => setShowExitConfirm(false)}
-                  className="kbc-button1 w-full sm:w-auto order-2 sm:order-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmExit}
-                  className="kbc-button1 bg-red-600 hover:bg-red-700 w-full sm:w-auto order-1 sm:order-2"
-                >
-                  Exit Game
-                </button>
-              </div>
+        {!hasUserInteracted ? (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+            <div className="kbc-card p-8 text-center max-w-md mx-4">
+              <h2 className="text-2xl text-kbc-gold mb-4">Welcome to KBC</h2>
+              <p className="text-white mb-6">Click the button below to start your experience</p>
+              <button 
+                onClick={handleStartExperience}
+                className="kbc-button1 animate-pulse"
+              >
+                Start Experience
+              </button>
             </div>
           </div>
+        ) : (
+          <>
+            {/* Add header with exit button */}
+            <header className="fixed top-0 left-0 right-0 flex justify-between items-center p-3 bg-kbc-dark-blue/80 backdrop-blur-[4px] z-10">
+              <button 
+                onClick={handleExitGame}
+                className="kbc-button bg-red-600 hover:bg-red-700 w-10 h-8 text-xs"
+              >
+                QUIT
+              </button>
+              <img 
+                src="/src/assets/kbc-logo.png" 
+                alt="KBC Logo" 
+                className="h-8"
+              />
+            </header>
+
+            <div className="kbc-card p-8 text-center animate-pulse">
+              <img 
+                src="/src/assets/kbc-logo.png" 
+                alt="KBC Logo" 
+                className="w-24 h-24 mx-auto mb-6"
+              />
+              <h2 className="text-2xl text-kbc-gold font-bold mb-4">
+                Waiting for Admin to Start the Game
+              </h2>
+              <p className="text-gray-300 mb-6">
+                Please stay on this screen. The game will begin automatically.
+              </p>
+            </div>
+
+            {/* Exit Confirmation Modal */}
+            {showExitConfirm && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="kbc-card w-full max-w-md p-4 sm:p-6">
+                  <h2 className="text-xl font-bold text-kbc-gold mb-4">Confirm Exit</h2>
+                  <p className="text-gray-300 mb-6">
+                    Are you sure you want to leave the game?
+                  </p>
+                  <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4">
+                    <button
+                      onClick={() => setShowExitConfirm(false)}
+                      className="kbc-button1 w-full sm:w-auto order-2 sm:order-1"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmExit}
+                      className="kbc-button1 bg-red-600 hover:bg-red-700 w-full sm:w-auto order-1 sm:order-2"
+                    >
+                      Exit Game
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {isSoundPaused && (
+          <button
+            onClick={handleRestartSound}
+            className="fixed bottom-4 right-4 kbc-button w-12 h-12 flex items-center justify-center text-xl rounded-full shadow-glow z-50"
+            title="Restart Sound"
+          >
+            🔄
+          </button>
         )}
       </div>
     );
@@ -349,7 +527,7 @@ const PlayGame = () => {
                     } ${
                       showAnswer && option === currentQuestion.correctAnswer ? 'correct' : ''
                     } ${
-                      showAnswer && lockedAnswer === option && 
+                      showAnswer && selectedOption === option && 
                       option !== currentQuestion.correctAnswer ? 'incorrect' : ''
                     }`}
                     disabled={lockedAnswer || showAnswer || timeLeft === 0}
@@ -359,7 +537,15 @@ const PlayGame = () => {
                     </span>
                     <span className="option-text">{option}</span>
                     
-                    {/* Option connector lines - displayed based on position */}
+                    {/* Show check/cross marks when answer is revealed
+                    {showAnswer && (
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xl">
+                        {option === currentQuestion.correctAnswer ? '✓' : 
+                         selectedOption === option ? '✗' : ''}
+                      </span>
+                    )}
+                     */}
+                    {/* Connector lines */}
                     <div className={`absolute ${index % 2 === 0 ? 'left-0' : 'right-0'} top-1/2 
                       ${index % 2 === 0 ? 'w-[50vw] right-full bg-gradient-to-l' : 'w-[50vw] left-full bg-gradient-to-r'} 
                       h-0.5 from-kbc-gold to-transparent transform 

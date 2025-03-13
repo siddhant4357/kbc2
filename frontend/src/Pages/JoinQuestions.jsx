@@ -80,6 +80,7 @@ const JoinQuestions = () => {
   const [isTimerStopped, setIsTimerStopped] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [isSoundPaused, setIsSoundPaused] = useState(false);
+  const [isInfiniteTimer, setIsInfiniteTimer] = useState(false);
   
   // Add audio states
   const [timerAudio] = useState(() => {
@@ -170,18 +171,18 @@ const JoinQuestions = () => {
 
   useEffect(() => {
     let timer;
-    if (timerStarted && timeLeft > 0 && !isTimerStopped) { // Add check for isTimerStopped
+    if (timerStarted && timeLeft > 0 && !isTimerStopped && !isInfiniteTimer) {
       timer = setInterval(() => {
         setTimeLeft(prev => prev - 1);
       }, 1000);
-    } else if (timeLeft === 0 && !lockedAnswer && !isTimerStopped) { // Also check here
+    } else if (timeLeft === 0 && !lockedAnswer && !isTimerStopped && !isInfiniteTimer) {
       setTimeExpired(true);
       setTimerStarted(false);
       setShowAnswer(true);
     }
 
     return () => clearInterval(timer);
-  }, [timerStarted, timeLeft, lockedAnswer, isTimerStopped]);
+  }, [timerStarted, timeLeft, lockedAnswer, isTimerStopped, isInfiniteTimer]);
 
   useEffect(() => {
     let timer;
@@ -317,10 +318,11 @@ const handleShowOptions = async () => {
 
   // Update handleLockAnswer function
 const handleLockAnswer = async () => {
-  if (selectedOption && !lockedAnswer && !showAnswer && timeLeft > 0) {
+  if (selectedOption && !lockedAnswer && !showAnswer && (timeLeft > 0 || isInfiniteTimer)) {
     setLockedAnswer(selectedOption);
     setTimerStarted(false);
     setShowAnswer(true);
+    setIsInfiniteTimer(false); // Reset infinite timer after locking answer
     
     // Stop all playing sounds
     await Promise.all([timerAudio, questionAudio].map(async (audio) => {
@@ -460,6 +462,11 @@ const handleRestartSound = async () => {
   }
 };
 
+const handleInfiniteTimer = () => {
+  setIsInfiniteTimer(prev => !prev);
+  setIsTimerStopped(prev => !prev);
+};
+
   if (loading) return (
     <div className="min-h-screen p-4 flex items-center justify-center">
       <div className="text-kbc-gold">Loading...</div>
@@ -520,8 +527,20 @@ const handleRestartSound = async () => {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center justify-center absolute left-1/2 transform -translate-x-1/2 gap-4">
-                <div className="relative w-12 h-12 sm:w-16 right-15 sm:h-16">
+              <div className="flex items-center justify-center gap-2">
+                <div className="relative w-12 h-12 sm:w-16 sm:h-16 flex items-center">
+                  {/* Infinite Timer Button - Now positioned to the left of the timer */}
+                  <button
+                    onClick={handleInfiniteTimer}
+                    className={`absolute -left-25 kbc-button w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-xs rounded-full ${
+                      isInfiniteTimer ? 'bg-green-600 hover:bg-green-700' : ''
+                    }`}
+                    title={isInfiniteTimer ? 'Timer is infinite' : 'Click to make timer infinite'}
+                  >
+                    {isInfiniteTimer ? '∞' : '⏸'}
+                  </button>
+                  
+                  {/* Timer Circle */}
                   <svg className="w-full h-full transform -rotate-90">
                     <circle
                       cx="50%"
@@ -531,11 +550,11 @@ const handleRestartSound = async () => {
                       strokeWidth="4"
                       fill="transparent"
                       className="text-kbc-gold"
-                      strokeDasharray={`${(timeLeft / timerDuration) * 176} 176`}
+                      strokeDasharray={isInfiniteTimer ? '176 176' : `${(timeLeft / timerDuration) * 176} 176`}
                     />
                   </svg>
                   <span className="absolute inset-0 flex items-center justify-center text-base sm:text-xl text-kbc-gold">
-                    {formatTime(timeLeft)}
+                    {isInfiniteTimer ? '∞' : formatTime(timeLeft)}
                   </span>
                 </div>
               </div>

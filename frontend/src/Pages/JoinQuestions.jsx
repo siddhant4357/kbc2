@@ -564,9 +564,9 @@ const handleInfiniteTimer = () => {
       </header>
 
       {/* Main game area - adjusted padding for mobile */}
-      <div className="container mx-auto pt-16 sm:pt-24 px-2 sm:px-4 flex flex-col lg:flex-row min-h-screen pb-6">
+      <div className="container mx-auto pt-16 sm:pt-20 px-2 sm:px-4 flex flex-col lg:flex-row h-screen">
         {/* Question Box */}
-        <div className="flex-1 flex flex-col justify-between min-h-[calc(100vh-8rem)] lg:pr-80 order-2 lg:order-1">
+        <div className="flex-1 flex flex-col justify-center min-h-0 lg:pr-80 order-2 lg:order-1 pb-4">
           {/* Mobile Prize and Lifelines Bar - Only visible on mobile/tablet devices, hidden on laptops/desktops */}
           <div className="block lg:hidden flex flex-col space-y-3 mb-4">
             <div className="kbc-question-box lg:hidden p-3 shadow-glow">
@@ -633,14 +633,38 @@ const handleInfiniteTimer = () => {
 
           <div className="flex-grow" />
           
-          {/* Question container - now separate from options */}
+          {/* Question container with image support */}
           {currentQuestion && (
-            <div className="kbc-question-box p-4 sm:p-8 shadow-glow mb-6 max-w-3xl mx-auto w-full">
-              <h2 className="text-2xl text-kbc-gold mb-6">
-                Question {currentQuestionIndex + 1} 
-              </h2>
-              <p className="text-white text-xl">{currentQuestion.question}</p>
-            </div>
+            <>
+              {/* Image container - with dynamic height based on options visibility */}
+              {currentQuestion.imageUrl && (
+                <div className="mb-4 flex justify-center transition-all duration-300">
+                  <div className={`relative w-full max-w-xl ${
+                    showOptions || (selectedOption && !lockedAnswer) 
+                      ? 'h-32 sm:h-40' // Smaller height when options are shown
+                      : 'h-48 sm:h-64' // Larger height when only question is shown
+                  }`}>
+                    <img
+                      src={`http://localhost:4000${currentQuestion.imageUrl}`}
+                      alt="Question"
+                      className="w-full h-full object-contain rounded-lg shadow-glow"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        console.error('Error loading image');
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Question box */}
+              <div className="kbc-question-box p-4 sm:p-6 shadow-glow mb-4 max-w-3xl mx-auto w-full z-10"> 
+                <h2 className="text-xl text-kbc-gold mb-3">
+                  Question {currentQuestionIndex + 1} 
+                </h2>
+                <p className="text-white text-lg mb-3">{currentQuestion.question}</p>
+              </div>
+            </>
           )}
 
           {/* Options container - now with connector lines */}

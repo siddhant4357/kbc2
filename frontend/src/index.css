@@ -1112,3 +1112,83 @@ input[type="range"]:focus {
 input[type="range"]:hover::-webkit-slider-thumb {
   box-shadow: 0 0 10px var(--kbc-gold);
 }
+
+/* Add these styles for question images */
+.aspect-video {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+  height: 0;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--kbc-gold);
+  border-radius: 0.5rem;
+}
+
+.aspect-video img {
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(255, 184, 0, 0.2);
+}
+
+.aspect-video img:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 30px rgba(255, 184, 0, 0.3);
+}
+
+@media (max-width: 640px) {
+  .aspect-video {
+    padding-bottom: 75%; /* 4:3 Aspect Ratio for mobile */
+  }
+}
+
+/* Add these styles for better layout control */
+@media (min-width: 1024px) { /* laptop and larger screens */
+  .container {
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
+  .kbc-question-box {
+    max-height: calc(30vh - 2rem);
+    overflow-y: auto;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .kbc-question-box::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  /* Compact options grid */
+  .options-container {
+    margin-top: 1rem;
+  }
+
+  .kbc-option {
+    padding: 0.75rem 1rem 0.75rem 3rem;
+    min-height: 3rem;
+  }
+}
+
+/* Add these styles for smoother image transitions */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+}
+
+/* Ensure question box stays above options but below modals */
+.kbc-question-box {
+  position: relative;
+  z-index: 10;
+}
+
+/* Adjust options container z-index */
+.options-container {
+  position: relative;
+  z-index: 5;
+}
+
+/* Ensure modals stay on top */
+.fixed {
+  z-index: 50;
+}

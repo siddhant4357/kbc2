@@ -10,7 +10,8 @@ const CreateQuestionBank = () => {
   const [questions, setQuestions] = useState([{
     question: '',
     options: ['', '', '', ''],
-    correctAnswer: ''
+    correctAnswer: '',
+    imageUrl: '' // Add this field
   }]);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -32,6 +33,31 @@ const CreateQuestionBank = () => {
     setQuestions(newQuestions);
   };
 
+  const handleImageUpload = async (questionIndex, file) => {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('http://localhost:4000/api/upload/question-image', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload image');
+      }
+
+      const data = await response.json();
+      
+      const newQuestions = [...questions];
+      newQuestions[questionIndex].imageUrl = data.imageUrl;
+      setQuestions(newQuestions);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+    }
+  };
+
   const updateQuestionCount = (count) => {
     const newCount = parseInt(count);
     if (newCount > questions.length) {
@@ -39,7 +65,8 @@ const CreateQuestionBank = () => {
       setQuestions([...questions, ...Array(newCount - questions.length).fill().map(() => ({
         question: '',
         options: ['', '', '', ''],
-        correctAnswer: ''
+        correctAnswer: '',
+        imageUrl: '' // Add this field
       }))]);
     } else {
       // Remove questions from the end
@@ -147,6 +174,49 @@ const CreateQuestionBank = () => {
                     className="kbc-input"
                     placeholder="Enter your question"
                   />
+                </div>
+
+                {/* Add image upload section */}
+                <div>
+                  <label className="block text-kbc-gold text-sm mb-2">Question Image (Optional)</label>
+                  <div className="flex items-center space-x-4">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(questionIndex, file);
+                      }}
+                      className="hidden"
+                      id={`image-upload-${questionIndex}`}
+                    />
+                    <label
+                      htmlFor={`image-upload-${questionIndex}`}
+                      className="kbc-button cursor-pointer px-4 py-2 text-sm"
+                    >
+                      {q.imageUrl ? 'Change Image' : 'Upload Image'}
+                    </label>
+                    {q.imageUrl && (
+                      <>
+                        <img
+                          src={`http://localhost:4000${q.imageUrl}`}
+                          alt="Question"
+                          className="h-20 w-20 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newQuestions = [...questions];
+                            newQuestions[questionIndex].imageUrl = '';
+                            setQuestions(newQuestions);
+                          }}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

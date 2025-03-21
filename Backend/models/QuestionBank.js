@@ -13,7 +13,8 @@ const questionBankSchema = new mongoose.Schema({
   questions: [{
     question: String,
     options: [String],
-    correctAnswer: String
+    correctAnswer: String,
+    imageUrl: String // Add this field
   }],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

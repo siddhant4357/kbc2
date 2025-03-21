@@ -10,6 +10,7 @@ const EditQuestionBank = () => {
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     const fetchQuestionBank = async () => {
@@ -83,6 +84,27 @@ const EditQuestionBank = () => {
     }
   };
 
+  const handleDelete = async () => {
+    try {
+      const response = await fetch(`http://localhost:4000/api/questionbanks/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      navigate('/question-bank');
+    } catch (error) {
+      console.error('Error deleting question bank:', error);
+      setError('Failed to delete question bank. Please try again later.');
+    }
+  };
+
   if (loading) return <div className="min-h-screen bg-gray-100 p-8 flex items-center justify-center">
     <div className="text-xl text-gray-600">Loading...</div>
   </div>;
@@ -128,12 +150,20 @@ const EditQuestionBank = () => {
                 </button>
               </>
             ) : (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="kbc-button"
-              >
-                Edit
-              </button>
+              <>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="kbc-button"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="kbc-button1 bg-red-600 hover:bg-red-700"
+                >
+                  Delete Bank
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -201,6 +231,32 @@ const EditQuestionBank = () => {
           </div>
         )}
       </div>
+
+      {/* Add the delete confirmation dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="kbc-card p-6 rounded-lg max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-kbc-gold mb-4">Confirm Delete</h2>
+            <p className="text-gray-300 mb-6">
+              Are you sure you want to delete this question bank? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="kbc-button1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="kbc-button1 bg-red-600 hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

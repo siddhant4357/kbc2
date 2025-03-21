@@ -26,6 +26,16 @@ app.get('/api/questionbanks', questionBankController.getAllQuestionBanks);
 app.post('/api/questionbanks', questionBankController.createQuestionBank);
 app.get('/api/questionbanks/:id', questionBankController.getQuestionBankById);
 app.put('/api/questionbanks/:id', questionBankController.updateQuestionBank);
+app.delete('/api/questionbanks/:id', questionBankController.deleteQuestionBank); // Add this route
+
+// Add image upload route
+app.post('/api/upload/question-image', 
+  questionBankController.upload.single('image'), 
+  questionBankController.uploadQuestionImage
+);
+
+// Serve uploaded files
+app.use('/uploads', express.static('uploads'));
 
 // Game routes
 app.post('/api/game/join', async (req, res) => {

@@ -7,6 +7,7 @@ import timerSound from '../assets/kbc_time.mp3';
 import correctAnswerSound from '../assets/kbc_correct_ans.wav';
 import wrongAnswerSound from '../assets/kbc_wrong_ans.wav';
 import timerEndSound from '../assets/kbc_timer_finish.mp4';
+import defaultQuestionImage from '../assets/default_img.jpg';
 
 // Update prize levels (from lowest to highest)
 const PRIZE_LEVELS = [
@@ -504,14 +505,45 @@ const PlayGame = () => {
 
           <div className="flex-grow" />
           
-          {/* Question container - now separate from options */}
+          {/* Question container with image support */}
           {currentQuestion && (
-            <div className="kbc-question-box p-4 sm:p-8 shadow-glow mb-6 max-w-3xl mx-auto w-full animate-fadeIn">
-              <h2 className="text-2xl text-kbc-gold mb-6">
-                Question {(parseInt(currentQuestion.questionIndex ?? 0) + 1)} 
-              </h2>
-              <p className="text-white text-xl">{currentQuestion.question}</p>
-            </div>
+            <>
+              {/* Image container - with dynamic height based on options visibility */}
+              <div className="mb-4 flex justify-center transition-all duration-300">
+                <div className={`relative w-full max-w-xl ${
+                  showOptions || (selectedOption && !lockedAnswer) 
+                    ? 'h-32 sm:h-40 lg:h-66' // Smaller height when options are shown
+                    : 'h-48 sm:h-64 lg:h-88' // Larger height when only question is shown
+                }`}>
+                  <img
+                    src={currentQuestion.imageUrl 
+                      ? `http://localhost:4000${currentQuestion.imageUrl}` 
+                      : defaultQuestionImage}
+                    alt="Question"
+                    className="w-full h-full object-contain rounded-lg shadow-glow"
+                    onError={(e) => {
+                      // If the user-provided image fails to load, fall back to default
+                      if (e.target.src !== defaultQuestionImage) {
+                        console.warn('Error loading image, falling back to default');
+                        e.target.src = defaultQuestionImage;
+                      } else {
+                        // If even the default fails, hide the image
+                        e.target.style.display = 'none';
+                        console.error('Error loading default image');
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Question box */}
+              <div className="kbc-question-box p-4 sm:p-8 shadow-glow mb-6 max-w-3xl mx-auto w-full animate-fadeIn">
+                <h2 className="text-2xl text-kbc-gold mb-6">
+                  Question {(parseInt(currentQuestion.questionIndex ?? 0) + 1)} 
+                </h2>
+                <p className="text-white text-xl">{currentQuestion.question}</p>
+              </div>
+            </>
           )}
 
           {/* Options container - now with connector lines */}

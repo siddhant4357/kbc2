@@ -38,6 +38,7 @@ const GameRules = () => {
   const [rotation, setRotation] = useState(0);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [isSoundPaused, setIsSoundPaused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Audio states
   const [themeSound] = useState(() => {
@@ -92,14 +93,30 @@ const GameRules = () => {
   // Handle start game
   const handleStartGame = async () => {
     try {
+      // Show loading state first
+      setIsLoading(true);
+      
+      // Stop current sounds
       await stopAllSounds();
+      
+      // Play question sound
       await questionSound.play();
+      
+      // Navigate after sound finishes or max 5 seconds
+      const navigationTimeout = setTimeout(() => {
+        navigate(`/join-questions/${bankId}`);
+      }, 5000);
+      
       questionSound.onended = () => {
+        clearTimeout(navigationTimeout);
         navigate(`/join-questions/${bankId}`);
       };
     } catch (error) {
       console.error("Error playing question sound:", error);
-      navigate(`/join-questions/${bankId}`);
+      // Still show loading for at least 1 second before navigation
+      setTimeout(() => {
+        navigate(`/join-questions/${bankId}`);
+      }, 1000);
     }
   };
 
@@ -246,6 +263,30 @@ const GameRules = () => {
       {/* Add restart sound button */}
       {isSoundPaused && (
         <RestartSoundButton onClick={handleRestartSound} />
+      )}
+      
+      {/* Loading overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+          <div className="relative w-24 h-24 mb-8">
+            {/* Animated KBC logo with rotating rings */}
+            <div className="absolute inset-0 rounded-full bg-kbc-gold opacity-20 blur-xl animate-pulse"></div>
+            <div className="absolute inset-0 border-4 border-kbc-gold rounded-full animate-spin" style={{ animationDuration: '3s' }}></div>
+            <div className="absolute inset-0 border-4 border-kbc-light-blue rounded-full animate-spin" style={{ animationDuration: '5s', animationDirection: 'reverse' }}></div>
+            
+            {/* Center K logo - simplified version */}
+            <div className="absolute inset-0 flex items-center justify-center text-4xl font-bold text-kbc-gold">K</div>
+          </div>
+          
+          <p className="text-kbc-gold text-xl font-medium">Preparing Your Game...</p>
+          
+          {/* Animated dots */}
+          <div className="flex space-x-2 mt-4">
+            <div className="w-3 h-3 bg-kbc-gold rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+            <div className="w-3 h-3 bg-kbc-gold rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            <div className="w-3 h-3 bg-kbc-gold rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+          </div>
+        </div>
       )}
     </div>
   );

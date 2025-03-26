@@ -5,6 +5,8 @@ import timerSound from '../assets/kbc_time.mp3';
 import timerEndSound from '../assets/kbc_timer_finish.mp4';
 import correctAnswerSound from '../assets/kbc_correct_ans.wav';
 import wrongAnswerSound from '../assets/kbc_wrong_ans.wav';
+// Import default question image
+import defaultQuestionImage from '../assets/default_img.jpg'; // Add this image to your assets folder
 
 
 // Add prize levels (from lowest to highest)
@@ -637,25 +639,32 @@ const handleInfiniteTimer = () => {
           {currentQuestion && (
             <>
               {/* Image container - with dynamic height based on options visibility */}
-              {currentQuestion.imageUrl && (
-                <div className="mb-4 flex justify-center transition-all duration-300">
-                  <div className={`relative w-full max-w-xl ${
-                    showOptions || (selectedOption && !lockedAnswer) 
-                      ? 'h-32 sm:h-40' // Smaller height when options are shown
-                      : 'h-48 sm:h-64' // Larger height when only question is shown
-                  }`}>
-                    <img
-                      src={`http://localhost:4000${currentQuestion.imageUrl}`}
-                      alt="Question"
-                      className="w-full h-full object-contain rounded-lg shadow-glow"
-                      onError={(e) => {
+              <div className="mb-4 flex justify-center transition-all duration-300">
+                <div className={`relative w-full max-w-xl ${
+                  showOptions || (selectedOption && !lockedAnswer) 
+                    ? 'h-32 sm:h-40 lg:h-66' // Smaller height when options are shown
+                    : 'h-48 sm:h-64 lg:h-88' // Larger height when only question is shown
+                }`}>
+                  <img
+                    src={currentQuestion.imageUrl 
+                      ? `http://localhost:4000${currentQuestion.imageUrl}` 
+                      : defaultQuestionImage}
+                    alt="Question"
+                    className="w-full h-full object-contain rounded-lg shadow-glow"
+                    onError={(e) => {
+                      // If the user-provided image fails to load, fall back to default
+                      if (e.target.src !== defaultQuestionImage) {
+                        console.warn('Error loading image, falling back to default');
+                        e.target.src = defaultQuestionImage;
+                      } else {
+                        // If even the default fails, hide the image
                         e.target.style.display = 'none';
-                        console.error('Error loading image');
-                      }}
-                    />
-                  </div>
+                        console.error('Error loading default image');
+                      }
+                    }}
+                  />
                 </div>
-              )}
+              </div>
 
               {/* Question box */}
               <div className="kbc-question-box p-4 sm:p-6 shadow-glow mb-4 max-w-3xl mx-auto w-full z-10"> 

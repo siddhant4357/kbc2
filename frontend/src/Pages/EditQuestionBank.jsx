@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import BackButton from '../components/BackButton';
+import defaultQuestionImage from '../assets/default_img.jpg';
 
 const EditQuestionBank = () => {
   const { id } = useParams();
@@ -105,6 +106,37 @@ const EditQuestionBank = () => {
     }
   };
 
+  const handleImageUpload = async (questionIndex, file) => {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('http://localhost:4000/api/upload/question-image', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload image');
+      }
+
+      const data = await response.json();
+      
+      const updatedQuestionBank = { ...questionBank };
+      updatedQuestionBank.questions[questionIndex].imageUrl = data.imageUrl;
+      setQuestionBank(updatedQuestionBank);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+    }
+  };
+
+  const handleRemoveImage = (questionIndex) => {
+    const updatedQuestionBank = { ...questionBank };
+    updatedQuestionBank.questions[questionIndex].imageUrl = '';
+    setQuestionBank(updatedQuestionBank);
+  };
+
   if (loading) return <div className="min-h-screen bg-gray-100 p-8 flex items-center justify-center">
     <div className="text-xl text-gray-600">Loading...</div>
   </div>;
@@ -180,6 +212,7 @@ const EditQuestionBank = () => {
                 <div key={index} className="kbc-card hover-card animate-slideIn">
                   <h3 className="text-kbc-gold text-xl mb-4">Question {index + 1}</h3>
                   <div className="space-y-6">
+                    {/* Question Text */}
                     {isEditing ? (
                       <input
                         type="text"
@@ -191,6 +224,66 @@ const EditQuestionBank = () => {
                       <p className="text-white mb-4">{question.question}</p>
                     )}
 
+                    {/* Image Section */}
+                    <div className="mb-4">
+                      {isEditing ? (
+                        <div className="flex items-center space-x-4">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleImageUpload(index, file);
+                            }}
+                            className="hidden"
+                            id={`image-upload-${index}`}
+                          />
+                          <label
+                            htmlFor={`image-upload-${index}`}
+                            className="kbc-button cursor-pointer px-4 py-2 text-sm"
+                          >
+                            {question.imageUrl ? 'Change Image' : 'Upload Image'}
+                          </label>
+                          
+                          {question.imageUrl && (
+                            <>
+                              <img
+                                src={`http://localhost:4000${question.imageUrl}`}
+                                alt="Question"
+                                className="h-20 w-20 object-cover rounded-lg shadow-glow"
+                                onError={(e) => {
+                                  console.warn('Error loading image');
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveImage(index)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                Remove
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ) : (
+                        question.imageUrl && (
+                          <div className="flex justify-center">
+                            <img
+                              src={`http://localhost:4000${question.imageUrl}`}
+                              alt="Question"
+                              className="max-h-40 object-contain rounded-lg shadow-glow"
+                              onError={(e) => {
+                                console.warn('Error loading image');
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )
+                      )}
+                    </div>
+
+                    {/* Existing options grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {question.options.map((option, optIndex) => (
                         <div key={optIndex}>

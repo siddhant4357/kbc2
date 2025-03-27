@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
+import { API_URL } from '../utils/config';
 
 const QuestionBank = () => {
   const [questionBanks, setQuestionBanks] = useState([]);
@@ -10,7 +11,7 @@ const QuestionBank = () => {
   useEffect(() => {
     const fetchQuestionBanks = async () => {
       try {
-        const response = await fetch('http://localhost:4000/api/questionbanks', {
+        const response = await fetch(`${API_URL}/api/questionbanks`, {
           credentials: 'include',
           headers: {
             'Accept': 'application/json'

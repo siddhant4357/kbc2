@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
+import { API_URL } from '../utils/config';
 
 const PlayAlong = () => {
   const [questionBanks, setQuestionBanks] = useState([]);
@@ -15,7 +16,7 @@ const PlayAlong = () => {
 
   const fetchQuestionBanks = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/questionbanks', {
+      const response = await fetch(`${API_URL}/api/questionbanks`, {
         credentials: 'include'
       });
       const data = await response.json();
@@ -33,7 +34,7 @@ const PlayAlong = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:4000/api/game/join`, {
+      const response = await fetch(`${API_URL}/api/game/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

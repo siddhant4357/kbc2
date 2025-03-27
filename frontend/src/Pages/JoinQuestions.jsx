@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { API_URL } from '../utils/config';
 import questionTune from '../assets/question_tune.wav';
 import timerSound from '../assets/kbc_time.mp3';
 import timerEndSound from '../assets/kbc_timer_finish.mp4';
@@ -147,7 +148,7 @@ const JoinQuestions = () => {
   useEffect(() => {
     const fetchQuestionBank = async () => {
       try {
-        const response = await fetch(`http://localhost:4000/api/questionbanks/${id}`, {
+        const response = await fetch(`${API_URL}/api/questionbanks/${id}`, {
           credentials: 'include'
         });
         
@@ -647,7 +648,7 @@ const handleInfiniteTimer = () => {
                 }`}>
                   <img
                     src={currentQuestion.imageUrl 
-                      ? `http://localhost:4000${currentQuestion.imageUrl}` 
+                      ? `${API_URL}${currentQuestion.imageUrl}` 
                       : defaultQuestionImage}
                     alt="Question"
                     className="w-full h-full object-contain rounded-lg shadow-glow"

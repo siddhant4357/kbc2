@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
+import { API_URL } from '../utils/config';
 
 const ManageUsers = () => {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ const ManageUsers = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/users', {
+      const response = await fetch(`${API_URL}/api/users`, {
         credentials: 'include'
       });
 
@@ -33,7 +34,7 @@ const ManageUsers = () => {
 
   const handleDeleteAllUsers = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/users', {
+      const response = await fetch(`${API_URL}/api/users`, {
         method: 'DELETE',
         credentials: 'include'
       });

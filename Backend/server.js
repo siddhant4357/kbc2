@@ -15,21 +15,58 @@ const {
 } = require('./utils/gameUtils');
 const GameState = require('./models/GameState');
 const UserPoints = require('./models/UserPoints');
+const config = require('./config/config');
 require('dotenv').config();
+const os = require('os');
 
 const httpServer = createServer(app);
 
-// Socket.IO setup
+// Socket.IO setup with environment-based config
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: process.env.CLIENT_URL,
     methods: ["GET", "POST"],
-    credentials: true
-  }
+    credentials: true,
+    transports: ['websocket', 'polling']
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  connectTimeout: 45000,
+  // Add production configs
+  path: '/socket.io',
+  serveClient: false,
+  // Enable sticky sessions if using multiple instances
+  adapter: require('socket.io-adapter')()
 });
 
-// Socket connection handler
+const socketErrorHandler = (socket, next) => {
+  socket.on('error', (error) => {
+    console.error('Socket error:', error);
+    socket.emit('error', 'An error occurred');
+  });
+  next();
+};
+
+io.use(socketErrorHandler);
+
+// Add error handling
+io.on('connect_error', (error) => {
+  console.error('Socket connection error:', error);
+});
+
+io.on('connect_timeout', (timeout) => {
+  console.error('Socket connection timeout:', timeout);
+});
+
+// Add reconnection handling
 io.on('connection', (socket) => {
+  socket.on('reconnect_attempt', () => {
+    console.log('Client attempting to reconnect');
+  });
+
+  socket.on('reconnect', () => {
+    console.log('Client reconnected');
+  });
 
   socket.on('joinGame', async ({ id }) => {
     socket.join(id);
@@ -211,7 +248,16 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
+    try {
+      // Cleanup any user-specific game states
+      const user = socket.user;
+      if (user) {
+        // Handle user disconnect logic
+      }
+    } catch (error) {
+      console.error('Error handling disconnect:', error);
+    }
   });
 });
 
@@ -220,6 +266,16 @@ app.set('io', io);
 
 // Connect to MongoDB
 connectDB();
+
+// Monitor system resources
+setInterval(() => {
+  const usage = {
+    memory: process.memoryUsage(),
+    cpu: os.loadavg(),
+    uptime: process.uptime()
+  };
+  console.log('System metrics:', usage);
+}, 300000); // Every 5 minutes
 
 // Start server
 const PORT = process.env.PORT || 4000;

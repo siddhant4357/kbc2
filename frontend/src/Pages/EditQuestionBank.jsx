@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import BackButton from '../components/BackButton';
 import defaultQuestionImage from '../assets/default_img.jpg';
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 const EditQuestionBank = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -16,7 +18,7 @@ const EditQuestionBank = () => {
   useEffect(() => {
     const fetchQuestionBank = async () => {
       try {
-        const response = await fetch(`http://localhost:4000/api/questionbanks/${id}`, {
+        const response = await fetch(`${API_URL}/api/questionbanks/${id}`, {
           credentials: 'include',
           headers: {
             'Accept': 'application/json'
@@ -60,7 +62,7 @@ const EditQuestionBank = () => {
 
   const handleSave = async () => {
     try {
-      const response = await fetch(`http://localhost:4000/api/questionbanks/${id}`, {
+      const response = await fetch(`${API_URL}/api/questionbanks/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -87,7 +89,7 @@ const EditQuestionBank = () => {
 
   const handleDelete = async () => {
     try {
-      const response = await fetch(`http://localhost:4000/api/questionbanks/${id}`, {
+      const response = await fetch(`${API_URL}/api/questionbanks/${id}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: {
@@ -111,7 +113,7 @@ const EditQuestionBank = () => {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch('http://localhost:4000/api/upload/question-image', {
+      const response = await fetch(`${API_URL}/api/upload/question-image`, {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -248,12 +250,13 @@ const EditQuestionBank = () => {
                           {question.imageUrl && (
                             <>
                               <img
-                                src={`http://localhost:4000${question.imageUrl}`}
+                                src={`${API_URL}${question.imageUrl}`}
                                 alt="Question"
                                 className="h-20 w-20 object-cover rounded-lg shadow-glow"
                                 onError={(e) => {
                                   console.warn('Error loading image');
-                                  e.target.style.display = 'none';
+                                  e.target.src = defaultQuestionImage; // Fallback image
+                                  e.target.onerror = null; // Prevent infinite loop
                                 }}
                               />
                               <button
@@ -270,12 +273,13 @@ const EditQuestionBank = () => {
                         question.imageUrl && (
                           <div className="flex justify-center">
                             <img
-                              src={`http://localhost:4000${question.imageUrl}`}
+                              src={`${API_URL}${question.imageUrl}`}
                               alt="Question"
                               className="max-h-40 object-contain rounded-lg shadow-glow"
                               onError={(e) => {
                                 console.warn('Error loading image');
-                                e.target.style.display = 'none';
+                                e.target.src = defaultQuestionImage; // Fallback image
+                                e.target.onerror = null; // Prevent infinite loop
                               }}
                             />
                           </div>

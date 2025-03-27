@@ -1,20 +1,57 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const helmet = require('helmet');
+const compression = require('compression');
+const config = require('./config/config');
 const authController = require('./controllers/authController');
 const questionBankController = require('./controllers/questionBankController');
 const QuestionBank = require('./models/QuestionBank');
-const GameState = require('./models/GameState'); // Add this import
+const GameState = require('./models/GameState');
 const UserPoints = require('./models/UserPoints');
+const rateLimit = require('express-rate-limit');
+const productionConfig = require('./config/production');
 
 const app = express();
 
-// Middleware
+// Security middlewares
+app.use(helmet());
+app.use(compression());
+
+// CORS configuration using environment variables
 app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true
+  origin: config.CLIENT_URL,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Existing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files with caching
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  maxAge: '1d',
+  etag: true
+}));
+
+// Add rate limiting
+const limiter = rateLimit(productionConfig.rateLimiting);
+app.use('/api/', limiter);
+
+// Add to app.js at the top
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", "wss:", "ws:", "your-frontend-domain.com"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"]
+    }
+  }
+}));
 
 // Auth routes
 app.post('/api/auth/login', authController.loginOrRegister);
@@ -26,16 +63,13 @@ app.get('/api/questionbanks', questionBankController.getAllQuestionBanks);
 app.post('/api/questionbanks', questionBankController.createQuestionBank);
 app.get('/api/questionbanks/:id', questionBankController.getQuestionBankById);
 app.put('/api/questionbanks/:id', questionBankController.updateQuestionBank);
-app.delete('/api/questionbanks/:id', questionBankController.deleteQuestionBank); // Add this route
+app.delete('/api/questionbanks/:id', questionBankController.deleteQuestionBank);
 
 // Add image upload route
 app.post('/api/upload/question-image', 
   questionBankController.upload.single('image'), 
   questionBankController.uploadQuestionImage
 );
-
-// Serve uploaded files
-app.use('/uploads', express.static('uploads'));
 
 // Game routes
 app.post('/api/game/join', async (req, res) => {
@@ -117,19 +151,34 @@ app.post('/api/game/:id/state', async (req, res) => {
   const { gameToken } = req.body;
   
   try {
-    // Validate game token and return current game state
-    const gameState = await GameState.findOne({ 
+    let gameState = await GameState.findOne({ 
       gameToken,
       questionBankId: req.params.id 
     });
     
     if (!gameState) {
-      return res.status(404).json({ message: 'Game session not found' });
+      // Create default game state if none exists
+      gameState = {
+        isActive: false,
+        currentQuestion: null,
+        showOptions: false,
+        showAnswer: false,
+        currentQuestionIndex: 0
+      };
     }
     
     res.json(gameState);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching game state' });
+    console.error('Error fetching game state:', error);
+    res.status(500).json({ 
+      message: 'Error fetching game state',
+      fallback: {
+        isActive: false,
+        currentQuestion: null,
+        showOptions: false,
+        showAnswer: false
+      }
+    });
   }
 });
 
@@ -222,6 +271,21 @@ app.delete('/api/leaderboard', async (req, res) => {
 // Base route
 app.get('/', (req, res) => {
   res.send('KBC API is running');
+});
+
+// Health check route
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date(),
+    uptime: process.uptime()
+  });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something broke!' });
 });
 
 module.exports = app;

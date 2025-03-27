@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import kbcLogo from '../assets/kbc-logo.jpg';
 import themeAudio from '../assets/kbc_theme.wav';
 import questionTune from '../assets/kbc_option_lock_tune.wav';
+import { API_URL } from '../utils/config';
 
 const RestartSoundButton = ({ onClick }) => (
   <button

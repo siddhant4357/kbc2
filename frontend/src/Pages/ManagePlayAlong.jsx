@@ -2,10 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
 import io from 'socket.io-client';
-
-// Get API URL from environment variable with fallback
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:4000';
+import { API_URL, SOCKET_URL } from '../utils/config';
 
 const ManagePlayAlong = () => {
   const [questionBanks, setQuestionBanks] = useState([]);

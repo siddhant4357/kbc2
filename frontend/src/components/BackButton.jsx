@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import PropTypes from 'prop-types';
 
 const BackButton = ({ to, className = '' }) => {
   const navigate = useNavigate();
@@ -12,6 +13,11 @@ const BackButton = ({ to, className = '' }) => {
       Back
     </button>
   );
+};
+
+BackButton.propTypes = {
+  to: PropTypes.string.isRequired,
+  className: PropTypes.string
 };
 
 export default BackButton;

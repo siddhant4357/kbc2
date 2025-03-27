@@ -19,89 +19,94 @@ import PlayAlong from './Pages/Playalong';
 import JoinGame from './Pages/JoinGame';
 import JoinQuestions from './Pages/JoinQuestions';
 import GameRules from './Pages/GameRules';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const App = () => {
   return (
-    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <Routes>
-        <Route path="/" element={<Navigate to="/login" />} />
-        <Route path="/login" element={<Login />} />
-        
-        {/* Protected Routes */}
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/play-along" element={
-          <ProtectedRoute>
-            <PlayAlong />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/play-game/:id" element={
-          <ProtectedRoute>
-            <PlayGame />
-          </ProtectedRoute>
-        } />
+    <ErrorBoundary>
+      <Router>
+        <React.Suspense fallback={<div>Loading...</div>}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/login" />} />
+            <Route path="/login" element={<Login />} />
+            
+            {/* Protected Routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/play-along" element={
+              <ProtectedRoute>
+                <PlayAlong />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/play-game/:id" element={
+              <ProtectedRoute>
+                <PlayGame />
+              </ProtectedRoute>
+            } />
 
-        <Route path="/join-game" element={
-          <ProtectedRoute>
-            <JoinGame />
-          </ProtectedRoute>
-        } />
+            <Route path="/join-game" element={
+              <ProtectedRoute>
+                <JoinGame />
+              </ProtectedRoute>
+            } />
 
-        <Route path="/join-questions/:id" element={
-          <ProtectedRoute>
-            <JoinQuestions />
-          </ProtectedRoute>
-        } />
+            <Route path="/join-questions/:id" element={
+              <ProtectedRoute>
+                <JoinQuestions />
+              </ProtectedRoute>
+            } />
 
-        <Route path="/game-rules/:bankId" element={
-          <ProtectedRoute>
-            <GameRules />
-          </ProtectedRoute>
-        } />
+            <Route path="/game-rules/:bankId" element={
+              <ProtectedRoute>
+                <GameRules />
+              </ProtectedRoute>
+            } />
 
-        {/* Admin Only Routes */}
-        <Route path="/question-bank" element={
-          <AdminRoute>
-            <QuestionBank />
-          </AdminRoute>
-        } />
-        
-        <Route path="/create-question-bank" element={
-          <AdminRoute>
-            <CreateQuestionBank />
-          </AdminRoute>
-        } />
-        
-        <Route path="/edit-question-bank/:id" element={
-          <AdminRoute>
-            <EditQuestionBank />
-          </AdminRoute>
-        } />
-        
-        <Route path="/manage-users" element={
-          <AdminRoute>
-            <ManageUsers />
-          </AdminRoute>
-        } />
-        
-        <Route path="/manage-play-along" element={
-          <AdminRoute>
-            <ManagePlayAlong />
-          </AdminRoute>
-        } />
-        
-        <Route path="/leaderboard" element={
-          <AdminRoute>
-            <Leaderboard />
-          </AdminRoute>
-        } />
-      </Routes>
-    </Router>
+            {/* Admin Only Routes */}
+            <Route path="/question-bank" element={
+              <AdminRoute>
+                <QuestionBank />
+              </AdminRoute>
+            } />
+            
+            <Route path="/create-question-bank" element={
+              <AdminRoute>
+                <CreateQuestionBank />
+              </AdminRoute>
+            } />
+            
+            <Route path="/edit-question-bank/:id" element={
+              <AdminRoute>
+                <EditQuestionBank />
+              </AdminRoute>
+            } />
+            
+            <Route path="/manage-users" element={
+              <AdminRoute>
+                <ManageUsers />
+              </AdminRoute>
+            } />
+            
+            <Route path="/manage-play-along" element={
+              <AdminRoute>
+                <ManagePlayAlong />
+              </AdminRoute>
+            } />
+            
+            <Route path="/leaderboard" element={
+              <AdminRoute>
+                <Leaderboard />
+              </AdminRoute>
+            } />
+          </Routes>
+        </React.Suspense>
+      </Router>
+    </ErrorBoundary>
   );
 };
 

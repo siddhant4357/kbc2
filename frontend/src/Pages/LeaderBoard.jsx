@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
+import { API_URL } from '../utils/config';
 
 const Leaderboard = () => {
   const [leaderboard, setLeaderboard] = useState([]);
@@ -23,7 +24,7 @@ const Leaderboard = () => {
 
   const fetchLeaderboard = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/leaderboard', {
+      const response = await fetch(`${API_URL}/api/leaderboard`, {
         credentials: 'include'
       });
       if (!response.ok) {
@@ -39,7 +40,7 @@ const Leaderboard = () => {
 
   const handleClearLeaderboard = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/leaderboard', {
+      const response = await fetch(`${API_URL}/api/leaderboard`, {
         method: 'DELETE',
         credentials: 'include'
       });

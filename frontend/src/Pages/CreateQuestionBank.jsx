@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
+import { API_URL } from '../utils/config';
 
 const CreateQuestionBank = () => {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ const CreateQuestionBank = () => {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch('http://localhost:4000/api/upload/question-image', {
+      const response = await fetch(`${API_URL}/api/upload/question-image`, {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -79,7 +80,7 @@ const CreateQuestionBank = () => {
     e.preventDefault();
     try {
       const filteredQuestions = questions.filter(q => q.question && q.correctAnswer);
-      const response = await fetch('http://localhost:4000/api/questionbanks', {
+      const response = await fetch(`${API_URL}/api/questionbanks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,7 +200,7 @@ const CreateQuestionBank = () => {
                     {q.imageUrl && (
                       <>
                         <img
-                          src={`http://localhost:4000${q.imageUrl}`}
+                          src={`${API_URL}${q.imageUrl}`}
                           alt="Question"
                           className="h-20 w-20 object-cover rounded-lg"
                         />

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
+import { SOCKET_URL } from '../utils/config';
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false); // Add this state
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,7 +17,7 @@ const Dashboard = () => {
     setUser(JSON.parse(userStr));
 
     // Connect to Socket.IO server
-    const socket = io(import.meta.env.VITE_API_URL);
+    const socket = io(SOCKET_URL);
 
     // Listen for force logout event
     socket.on('forceLogout', () => {

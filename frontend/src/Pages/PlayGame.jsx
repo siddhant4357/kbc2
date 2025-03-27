@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
+import { API_URL, SOCKET_URL } from '../utils/config';
 import themeAudio from '../assets/kbc_theme.wav';
 import questionTune from '../assets/question_tune.wav';
 import timerSound from '../assets/kbc_time.mp3';
@@ -8,6 +9,7 @@ import correctAnswerSound from '../assets/kbc_correct_ans.wav';
 import wrongAnswerSound from '../assets/kbc_wrong_ans.wav';
 import timerEndSound from '../assets/kbc_timer_finish.mp4';
 import defaultQuestionImage from '../assets/default_img.jpg';
+import { loadAudio, playWithFallback, stopAllSounds } from '../utils/audioUtils';
 
 // Update prize levels (from lowest to highest)
 const PRIZE_LEVELS = [
@@ -49,38 +51,11 @@ const PlayGame = () => {
   const [isWaiting, setIsWaiting] = useState(true);
 
   // Add audio states
-  const [themeSound] = useState(() => {
-    const audio = new Audio(themeAudio);
-    audio.volume = 0.5;
-    return audio;
-  });
-
-  const [questionSound] = useState(() => {
-    const audio = new Audio(questionTune);
-    audio.volume = 0.5;
-    return audio;
-  });
-
-  const [timerAudio] = useState(() => {
-    const audio = new Audio(timerSound);
-    audio.volume = 0.5;
-    return audio;
-  });
-
-  const [correctAudio] = useState(() => {
-    const audio = new Audio(correctAnswerSound);
-    audio.volume = 0.5;
-    audio.preload = 'auto';  // Add this line
-    return audio;
-  });
-
-  const [wrongAudio] = useState(() => {
-    const audio = new Audio(wrongAnswerSound);
-    audio.volume = 0.5;
-    audio.preload = 'auto';  // Add this line
-    return audio;
-  });
-
+  const [themeSound] = useState(() => loadAudio(themeAudio));
+  const [questionSound] = useState(() => loadAudio(questionTune));
+  const [timerAudio] = useState(() => loadAudio(timerSound));
+  const [correctAudio] = useState(() => loadAudio(correctAnswerSound));
+  const [wrongAudio] = useState(() => loadAudio(wrongAnswerSound));
   const [timerEndAudio] = useState(() => {
     const audio = new Audio(timerEndSound);
     audio.volume = 0.5;
@@ -156,7 +131,7 @@ const PlayGame = () => {
   }, [timerStartedAt, timerDuration, showOptions, lockedAnswer]);
 
   useEffect(() => {
-    const newSocket = io('http://localhost:4000');
+    const newSocket = io(SOCKET_URL);
     
     newSocket.emit('joinGame', { id });
 
@@ -310,6 +285,35 @@ const PlayGame = () => {
 
     preloadSounds();
   }, [correctAudio, wrongAudio]);
+
+  useEffect(() => {
+    const socket = createSocketConnection();
+    
+    let reconnectInterval;
+    
+    socket.on('disconnect', () => {
+      console.log('Disconnected from server');
+      // Show disconnection message to user
+      setError('Lost connection to server. Attempting to reconnect...');
+      
+      // Attempt to reconnect every 5 seconds
+      reconnectInterval = setInterval(() => {
+        socket.connect();
+      }, 5000);
+    });
+    
+    socket.on('connect', () => {
+      clearInterval(reconnectInterval);
+      setError('');
+      // Re-join game room
+      socket.emit('joinGame', { id });
+    });
+  
+    return () => {
+      socket.disconnect();
+      clearInterval(reconnectInterval);
+    };
+  }, [id]);
 
   const handleOptionSelect = (option) => {
     // Allow selecting options if answer isn't locked and answer isn't shown

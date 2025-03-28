@@ -10,7 +10,6 @@ const QuestionBank = require('./models/QuestionBank');
 const GameState = require('./models/GameState');
 const UserPoints = require('./models/UserPoints');
 const rateLimit = require('express-rate-limit');
-const productionConfig = require('./config/production');
 
 const app = express();
 
@@ -37,7 +36,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
 }));
 
 // Add rate limiting
-const limiter = rateLimit(productionConfig.rateLimiting);
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100
+});
 app.use('/api/', limiter);
 
 // Add to app.js at the top

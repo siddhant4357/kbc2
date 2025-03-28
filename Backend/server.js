@@ -32,11 +32,8 @@ const io = new Server(httpServer, {
   pingTimeout: 60000,
   pingInterval: 25000,
   connectTimeout: 45000,
-  // Add production configs
   path: '/socket.io',
-  serveClient: false,
-  // Enable sticky sessions if using multiple instances
-  adapter: require('socket.io-adapter')()
+  serveClient: false
 });
 
 const socketErrorHandler = (socket, next) => {
@@ -266,16 +263,6 @@ app.set('io', io);
 
 // Connect to MongoDB
 connectDB();
-
-// Monitor system resources
-setInterval(() => {
-  const usage = {
-    memory: process.memoryUsage(),
-    cpu: os.loadavg(),
-    uptime: process.uptime()
-  };
-  console.log('System metrics:', usage);
-}, 300000); // Every 5 minutes
 
 // Start server
 const PORT = process.env.PORT || 4000;

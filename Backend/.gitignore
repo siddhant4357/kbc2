@@ -8,7 +8,8 @@ yarn-error.log*
 .env
 
 # User Uploads
-uploads/
+uploads/*
+!uploads/.gitkeep
 public/uploads/
 **/uploads/
 

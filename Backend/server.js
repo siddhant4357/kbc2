@@ -24,16 +24,11 @@ const httpServer = createServer(app);
 // Socket.IO setup with environment-based config
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
     methods: ["GET", "POST"],
-    credentials: true,
-    transports: ['websocket', 'polling']
+    credentials: true
   },
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  connectTimeout: 45000,
-  path: '/socket.io',
-  serveClient: false
+  path: '/socket.io'
 });
 
 const socketErrorHandler = (socket, next) => {

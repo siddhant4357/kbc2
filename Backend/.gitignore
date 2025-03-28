@@ -6,10 +6,6 @@ yarn-error.log*
 
 # Environment Variables
 .env
-.env.development
-.env.production
-.env.local
-.env.*.local
 
 # User Uploads
 uploads/

@@ -71,22 +71,50 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('adminAction', (data) => {
+  socket.on('adminAction', async (data) => {
     if (!currentUser?.isAdmin) return;
 
-    switch (data.action) {
-      case 'showQuestion':
-        io.to(currentUser.room).emit('showQuestion', data.question);
-        break;
-      case 'showOptions':
-        io.to(currentUser.room).emit('showOptions', data.options);
-        break;
-      case 'showAnswer':
-        io.to(currentUser.room).emit('showAnswer', data.answer);
-        break;
-      case 'nextQuestion':
-        io.to(currentUser.room).emit('nextQuestion');
-        break;
+    try {
+      switch (data.action) {
+        case 'showOptions':
+          await GameState.findOneAndUpdate(
+            { questionBankId: currentUser.room },
+            { 
+              showOptions: true,
+              timerStartedAt: new Date(),
+              timerDuration: data.timerDuration || 15
+            }
+          );
+          io.to(currentUser.room).emit('showOptions', {
+            timerStartedAt: new Date(),
+            timerDuration: data.timerDuration || 15
+          });
+          break;
+
+        case 'showAnswer':
+          await GameState.findOneAndUpdate(
+            { questionBankId: currentUser.room },
+            { showAnswer: true }
+          );
+          io.to(currentUser.room).emit('showAnswer');
+          break;
+
+        case 'stopGame':
+          await GameState.findOneAndUpdate(
+            { questionBankId: currentUser.room },
+            { 
+              isActive: false,
+              currentQuestion: null,
+              showOptions: false,
+              showAnswer: false
+            }
+          );
+          io.to(currentUser.room).emit('gameStop');
+          break;
+      }
+    } catch (error) {
+      console.error('Error processing admin action:', error);
+      socket.emit('error', 'Failed to process admin action');
     }
   });
 

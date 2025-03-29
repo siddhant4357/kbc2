@@ -20,7 +20,14 @@ const gameStateSchema = new mongoose.Schema({
   playerAnswers: [{
     username: String,
     answer: String,
+    isCorrect: Boolean,
+    points: Number,
     timestamp: Date
+  }],
+  connectedPlayers: [{
+    username: String,
+    joinedAt: Date,
+    leftAt: Date
   }]
 });
 

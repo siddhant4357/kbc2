@@ -8,7 +8,18 @@ module.exports = {
     max: 100 // limit each IP to 100 requests per windowMs
   },
   corsOptions: {
-    origin: ['https://your-frontend-domain.com'],
+    origin: ['https://kbc-frontend-beige.vercel.app/'],
+    credentials: true
+  },
+  socket: {
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    upgradeTimeout: 30000,
+    transports: ['websocket', 'polling']
+  },
+  cors: {
+    origin: process.env.CLIENT_URL?.split(',') || [],
+    methods: ['GET', 'POST', 'OPTIONS'],
     credentials: true
   }
 };

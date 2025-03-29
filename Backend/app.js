@@ -20,11 +20,20 @@ app.set('trust proxy', 1);
 app.use(helmet());
 app.use(compression());
 
-// CORS configuration using environment variables
+// Update the CORS configuration
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (config.CLIENT_URLS.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -360,6 +369,18 @@ app.get('/health', (req, res) => {
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Something broke!' });
+});
+
+// Add this after all your routes
+app.use((err, req, res, next) => {
+  console.error('Error:', err.message);
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({
+      message: 'CORS origin not allowed',
+      allowedOrigins: config.CLIENT_URLS
+    });
+  }
+  res.status(500).json({ message: 'Internal server error' });
 });
 
 module.exports = app;

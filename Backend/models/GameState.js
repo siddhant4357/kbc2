@@ -34,7 +34,15 @@ const gameStateSchema = new mongoose.Schema({
   timerDuration: {
     type: Number,
     default: 15 // Default 15 seconds
-  }
+  },
+  playerAnswers: [{
+    username: String,
+    answer: String,
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('GameState', gameStateSchema);

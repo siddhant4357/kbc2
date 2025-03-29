@@ -76,6 +76,8 @@ io.on('connection', (socket) => {
       if (!isAdmin) {
         socket.to(questionBankId).emit('playerJoined', { username });
       }
+
+      socket.emit('joinedGame', { success: true });
     } catch (error) {
       console.error('Error on join:', error);
       socket.emit('error', 'Failed to join game');
@@ -84,6 +86,9 @@ io.on('connection', (socket) => {
 
   socket.on('adminAction', async (data) => {
     try {
+      const gameState = await GameState.findOne({ questionBankId: currentRoom });
+      if (!gameState) return;
+
       switch (data.action) {
         case 'startGame':
           await GameState.findOneAndUpdate(
@@ -105,27 +110,53 @@ io.on('connection', (socket) => {
           });
           break;
 
-        case 'stopGame':
-          // Calculate final scores and update leaderboard
-          const gameState = await GameState.findOne({ questionBankId: currentRoom });
-          if (gameState) {
-            const playerScores = calculatePlayerScores(gameState.playerAnswers);
-            await updateLeaderboard(playerScores);
-            
-            await GameState.findOneAndUpdate(
-              { questionBankId: currentRoom },
-              { isActive: false }
-            );
-            
-            io.to(currentRoom).emit('gameEnd', { playerScores });
-            io.to(currentRoom).emit('redirect', '/dashboard');
-          }
+        case 'showOptions':
+          await GameState.findOneAndUpdate(
+            { questionBankId: currentRoom },
+            { 
+              showOptions: true,
+              timerStartedAt: new Date(),
+              timerDuration: data.timerDuration || 15
+            }
+          );
+          io.to(currentRoom).emit('gameStateUpdate', {
+            showOptions: true,
+            timerStartedAt: new Date(),
+            timerDuration: data.timerDuration || 15
+          });
           break;
 
-        // ... other cases remain the same
+        case 'showAnswer':
+          await GameState.findOneAndUpdate(
+            { questionBankId: currentRoom },
+            { showAnswer: true }
+          );
+          io.to(currentRoom).emit('gameStateUpdate', { showAnswer: true });
+          break;
+
+        case 'nextQuestion':
+          await GameState.findOneAndUpdate(
+            { questionBankId: currentRoom },
+            {
+              currentQuestion: data.question,
+              currentQuestionIndex: data.questionIndex,
+              showOptions: false,
+              showAnswer: false,
+              timerStartedAt: null
+            }
+          );
+          io.to(currentRoom).emit('gameStateUpdate', {
+            currentQuestion: data.question,
+            currentQuestionIndex: data.questionIndex,
+            showOptions: false,
+            showAnswer: false,
+            timerStartedAt: null
+          });
+          break;
       }
     } catch (error) {
       console.error('Error processing admin action:', error);
+      socket.emit('error', 'Failed to process action');
     }
   });
 

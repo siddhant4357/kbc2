@@ -13,3 +13,11 @@ services:
         sync: false
       - key: CLIENT_URL
         sync: false
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_URL
+        value: "https://kbc-frontend-beige.vercel.app,https://kbc-frontend-1-git-main-siddhants-projects-bf927e7a.vercel.app"
+      - key: CORS_ENABLED
+        value: "true"
+      - key: SOCKET_PATH
+        value: "/socket.io"

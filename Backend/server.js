@@ -44,27 +44,37 @@ io.engine.on("connection_error", (err) => {
 });
 
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
-
-  socket.on('error', (error) => {
-    console.error('Socket error:', error);
-  });
+  let currentRoom = null;
+  let currentUser = null;
 
   socket.on('joinGame', async ({ questionBankId, username, isAdmin }) => {
     try {
-      const room = questionBankId;
-      await socket.join(room);
-      console.log(`${username} joined game ${room}`);
+      currentRoom = questionBankId;
+      currentUser = username;
+      socket.join(questionBankId);
+      
+      // Update connected players
+      await GameState.findOneAndUpdate(
+        { questionBankId },
+        { 
+          $push: { 
+            connectedPlayers: {
+              username,
+              joinedAt: new Date()
+            }
+          }
+        }
+      );
+
+      // Send current game state to joining user
+      const gameState = await GameState.findOne({ questionBankId });
+      if (gameState) {
+        socket.emit('gameStateUpdate', gameState);
+      }
 
       // Notify admin about new player
       if (!isAdmin) {
-        socket.to(room).emit('playerJoined', { username });
-      }
-
-      // Send current game state
-      const gameState = await GameState.findOne({ questionBankId: room });
-      if (gameState) {
-        socket.emit('gameStateUpdate', gameState);
+        socket.to(questionBankId).emit('playerJoined', { username });
       }
     } catch (error) {
       console.error('Error on join:', error);
@@ -72,19 +82,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Admin actions
   socket.on('adminAction', async (data) => {
     try {
-      const gameState = await GameState.findOne({ 
-        questionBankId: questionBankId,
-      });
-
-      if (!gameState) return;
-
       switch (data.action) {
         case 'startGame':
           await GameState.findOneAndUpdate(
-            { questionBankId: questionBankId },
+            { questionBankId: currentRoom },
             {
               isActive: true,
               currentQuestion: data.question,
@@ -93,7 +96,7 @@ io.on('connection', (socket) => {
               currentQuestionIndex: 0
             }
           );
-          io.to(questionBankId).emit('gameStateUpdate', {
+          io.to(currentRoom).emit('gameStateUpdate', {
             isActive: true,
             currentQuestion: data.question,
             showOptions: false,
@@ -102,72 +105,92 @@ io.on('connection', (socket) => {
           });
           break;
 
-        case 'showOptions':
-          const now = new Date();
-          await GameState.findOneAndUpdate(
-            { questionBankId: questionBankId },
-            {
-              showOptions: true,
-              timerStartedAt: now,
-              timerDuration: data.timerDuration
-            }
-          );
-          io.to(questionBankId).emit('gameStateUpdate', {
-            showOptions: true,
-            timerStartedAt: now,
-            timerDuration: data.timerDuration
-          });
-          break;
-
-        case 'showAnswer':
-          await GameState.findOneAndUpdate(
-            { questionBankId: questionBankId },
-            { showAnswer: true }
-          );
-          io.to(questionBankId).emit('gameStateUpdate', { showAnswer: true });
-          break;
-
-        case 'nextQuestion':
-          await GameState.findOneAndUpdate(
-            { questionBankId: questionBankId },
-            {
-              currentQuestion: data.question,
-              currentQuestionIndex: data.questionIndex,
-              showOptions: false,
-              showAnswer: false,
-              timerStartedAt: null
-            }
-          );
-          io.to(questionBankId).emit('gameStateUpdate', {
-            currentQuestion: data.question,
-            currentQuestionIndex: data.questionIndex,
-            showOptions: false,
-            showAnswer: false,
-            timerStartedAt: null
-          });
-          break;
-
         case 'stopGame':
-          await GameState.findOneAndUpdate(
-            { questionBankId: questionBankId },
-            {
-              isActive: false,
-              showOptions: false,
-              showAnswer: false
-            }
-          );
-          io.to(questionBankId).emit('gameStateUpdate', { isActive: false });
+          // Calculate final scores and update leaderboard
+          const gameState = await GameState.findOne({ questionBankId: currentRoom });
+          if (gameState) {
+            const playerScores = calculatePlayerScores(gameState.playerAnswers);
+            await updateLeaderboard(playerScores);
+            
+            await GameState.findOneAndUpdate(
+              { questionBankId: currentRoom },
+              { isActive: false }
+            );
+            
+            io.to(currentRoom).emit('gameEnd', { playerScores });
+            io.to(currentRoom).emit('redirect', '/dashboard');
+          }
           break;
+
+        // ... other cases remain the same
       }
     } catch (error) {
       console.error('Error processing admin action:', error);
     }
   });
 
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+  socket.on('disconnect', async () => {
+    if (currentRoom && currentUser) {
+      // Update player's left timestamp
+      await GameState.findOneAndUpdate(
+        { 
+          questionBankId: currentRoom,
+          'connectedPlayers.username': currentUser
+        },
+        { 
+          $set: { 
+            'connectedPlayers.$.leftAt': new Date()
+          }
+        }
+      );
+      
+      socket.to(currentRoom).emit('playerLeft', { username: currentUser });
+    }
   });
 });
+
+// Helper function to calculate scores
+function calculatePlayerScores(playerAnswers) {
+  const scores = {};
+  playerAnswers.forEach(answer => {
+    if (!scores[answer.username]) {
+      scores[answer.username] = {
+        points: 0,
+        correctAnswers: 0,
+        totalAttempts: 0
+      };
+    }
+    scores[answer.username].totalAttempts++;
+    if (answer.isCorrect) {
+      scores[answer.username].points += answer.points;
+      scores[answer.username].correctAnswers++;
+    }
+  });
+  return scores;
+}
+
+// Helper function to update leaderboard
+async function updateLeaderboard(playerScores) {
+  try {
+    const updates = Object.entries(playerScores).map(([username, score]) => ({
+      updateOne: {
+        filter: { username },
+        update: {
+          $inc: {
+            points: score.points,
+            correctAnswers: score.correctAnswers,
+            totalAttempts: score.totalAttempts
+          }
+        },
+        upsert: true
+      }
+    }));
+
+    await UserPoints.bulkWrite(updates);
+  } catch (error) {
+    console.error('Error updating leaderboard:', error);
+  }
+}
 
 // Make io accessible to other modules
 app.set('io', io);

@@ -52,12 +52,52 @@ io.on('connect_timeout', (timeout) => {
 
 // Add reconnection handling
 io.on('connection', (socket) => {
-  socket.on('reconnect_attempt', () => {
-    console.log('Client attempting to reconnect');
+  // Store user info
+  let currentUser = null;
+
+  socket.on('identify', (data) => {
+    currentUser = {
+      username: data.username,
+      isAdmin: data.isAdmin,
+      room: data.questionBankId
+    };
+    socket.join(data.questionBankId);
+
+    // Notify admin about new player
+    if (!data.isAdmin) {
+      socket.to(data.questionBankId).emit('playerJoined', {
+        username: data.username
+      });
+    }
   });
 
-  socket.on('reconnect', () => {
-    console.log('Client reconnected');
+  socket.on('adminAction', (data) => {
+    if (!currentUser?.isAdmin) return;
+
+    switch (data.action) {
+      case 'showQuestion':
+        io.to(currentUser.room).emit('showQuestion', data.question);
+        break;
+      case 'showOptions':
+        io.to(currentUser.room).emit('showOptions', data.options);
+        break;
+      case 'showAnswer':
+        io.to(currentUser.room).emit('showAnswer', data.answer);
+        break;
+      case 'nextQuestion':
+        io.to(currentUser.room).emit('nextQuestion');
+        break;
+    }
+  });
+
+  socket.on('playerAnswer', (data) => {
+    if (!currentUser || currentUser.isAdmin) return;
+
+    // Send answer to admin
+    socket.to(currentUser.room).emit('playerAnswer', {
+      username: currentUser.username,
+      answer: data.answer
+    });
   });
 
   socket.on('joinGame', async ({ id }) => {
@@ -240,7 +280,13 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('disconnect', async () => {
+  socket.on('disconnect', () => {
+    if (currentUser && !currentUser.isAdmin) {
+      socket.to(currentUser.room).emit('playerLeft', {
+        username: currentUser.username
+      });
+    }
+
     try {
       // Cleanup any user-specific game states
       const user = socket.user;

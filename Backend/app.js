@@ -187,25 +187,20 @@ app.post('/api/game/:id/state', async (req, res) => {
 // Game state routes
 app.get('/api/game/:id/status', async (req, res) => {
   try {
-    const questionBank = await QuestionBank.findById(req.params.id);
-    if (!questionBank) {
-      return res.status(404).json({ 
-        message: 'Game not found' 
-      });
-    }
-    
-    // Return game status
+    const gameState = await GameState.findOne({ 
+      questionBankId: req.params.id 
+    });
+
     res.json({
-      isActive: true,
-      questionBank: {
-        id: questionBank._id,
-        name: questionBank.name,
-        questionsCount: questionBank.questions.length
-      }
+      isActive: gameState?.isActive || false,
+      currentQuestion: gameState?.currentQuestion || null,
+      showOptions: gameState?.showOptions || false,
+      showAnswer: gameState?.showAnswer || false
     });
   } catch (error) {
     res.status(500).json({ 
-      message: 'Error fetching game status' 
+      message: 'Error fetching game status',
+      error: error.message 
     });
   }
 });

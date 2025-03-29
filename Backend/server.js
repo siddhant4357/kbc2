@@ -75,6 +75,16 @@ io.on('connection', (socket) => {
     if (!currentUser?.isAdmin) return;
 
     try {
+      const gameState = await GameState.findOne({ 
+        questionBankId: currentUser.room,
+        isActive: true 
+      });
+
+      if (!gameState) {
+        socket.emit('error', 'Game not found or not active');
+        return;
+      }
+
       switch (data.action) {
         case 'showOptions':
           await GameState.findOneAndUpdate(
@@ -85,7 +95,9 @@ io.on('connection', (socket) => {
               timerDuration: data.timerDuration || 15
             }
           );
-          io.to(currentUser.room).emit('showOptions', {
+          // Broadcast to all users in the room
+          io.to(currentUser.room).emit('gameStateUpdate', {
+            showOptions: true,
             timerStartedAt: new Date(),
             timerDuration: data.timerDuration || 15
           });
@@ -96,25 +108,34 @@ io.on('connection', (socket) => {
             { questionBankId: currentUser.room },
             { showAnswer: true }
           );
-          io.to(currentUser.room).emit('showAnswer');
+          io.to(currentUser.room).emit('gameStateUpdate', {
+            showAnswer: true
+          });
           break;
 
-        case 'stopGame':
-          await GameState.findOneAndUpdate(
+        case 'nextQuestion':
+          const updatedState = await GameState.findOneAndUpdate(
             { questionBankId: currentUser.room },
             { 
-              isActive: false,
-              currentQuestion: null,
+              currentQuestion: data.question,
+              currentQuestionIndex: data.questionIndex,
               showOptions: false,
-              showAnswer: false
-            }
+              showAnswer: false,
+              timerStartedAt: null
+            },
+            { new: true }
           );
-          io.to(currentUser.room).emit('gameStop');
+          io.to(currentUser.room).emit('gameStateUpdate', {
+            currentQuestion: updatedState.currentQuestion,
+            currentQuestionIndex: updatedState.currentQuestionIndex,
+            showOptions: false,
+            showAnswer: false
+          });
           break;
       }
     } catch (error) {
       console.error('Error processing admin action:', error);
-      socket.emit('error', 'Failed to process admin action');
+      socket.emit('error', 'Failed to process action');
     }
   });
 
@@ -305,6 +326,27 @@ io.on('connection', (socket) => {
       io.to(questionBankId).emit('gameStop');
     } catch (error) {
       console.error('Error stopping game:', error);
+    }
+  });
+
+  socket.on('reconnect', async (data) => {
+    try {
+      const gameState = await GameState.findOne({ 
+        questionBankId: data.questionBankId,
+        isActive: true 
+      });
+      
+      if (gameState) {
+        socket.emit('gameStateUpdate', {
+          currentQuestion: gameState.currentQuestion,
+          showOptions: gameState.showOptions,
+          showAnswer: gameState.showAnswer,
+          timerStartedAt: gameState.timerStartedAt,
+          timerDuration: gameState.timerDuration
+        });
+      }
+    } catch (error) {
+      console.error('Error handling reconnection:', error);
     }
   });
 

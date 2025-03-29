@@ -77,11 +77,11 @@ app.post('/api/upload/question-image',
 );
 
 // Game routes
+// Update the game join route to handle game tokens
 app.post('/api/game/join', async (req, res) => {
   const { questionBankId, passcode } = req.body;
   
   try {
-    // Find the question bank
     const questionBank = await QuestionBank.findById(questionBankId);
     
     if (!questionBank) {
@@ -93,23 +93,27 @@ app.post('/api/game/join', async (req, res) => {
       return res.status(401).json({ message: 'Invalid passcode' });
     }
 
-    // Check if game is active
-    const gameState = await GameState.findOne({ questionBankId });
-    if (!gameState || !gameState.isActive) {
-      return res.json({
-        message: 'Waiting for admin to start the game',
-        status: 'waiting',
-        questionBank: {
-          id: questionBank._id,
-          name: questionBank.name
-        }
-      });
-    }
+    // Generate unique game token
+    const gameToken = require('crypto').randomBytes(16).toString('hex');
 
-    // Return success with minimal game state
+    // Create or update game state
+    const gameState = await GameState.findOneAndUpdate(
+      { questionBankId },
+      { 
+        $setOnInsert: {
+          questionBankId,
+          isActive: false,
+          gameToken
+        }
+      },
+      { upsert: true, new: true }
+    );
+
+    // Store token in response
     res.json({
       message: 'Successfully joined game',
-      status: 'active',
+      status: gameState.isActive ? 'active' : 'waiting',
+      gameToken,
       questionBank: {
         id: questionBank._id,
         name: questionBank.name,
@@ -238,37 +242,33 @@ app.post('/api/game/:id/showAnswer', async (req, res) => {
   }
 });
 
-// Answer submission route
+// Add specific answer submission endpoint
 app.post('/api/game/:id/answer', async (req, res) => {
-  const { questionIndex, answer } = req.body;
+  const { answer, username, gameToken } = req.body;
   
   try {
-    const questionBank = await QuestionBank.findById(req.params.id);
-    if (!questionBank) {
-      return res.status(404).json({ 
-        message: 'Game not found' 
-      });
-    }
-
-    const question = questionBank.questions[questionIndex];
-    if (!question) {
-      return res.status(404).json({ 
-        message: 'Question not found' 
-      });
-    }
-
-    // Check if answer is correct
-    const isCorrect = answer === question.correctAnswer;
-
-    res.json({
-      isCorrect,
-      correctAnswer: question.correctAnswer
+    // Validate game token
+    const gameState = await GameState.findOne({ 
+      questionBankId: req.params.id,
+      gameToken,
+      isActive: true 
     });
+
+    if (!gameState) {
+      return res.status(404).json({ message: 'Game session not found' });
+    }
+
+    // Save answer
+    await GameState.findOneAndUpdate(
+      { questionBankId: req.params.id, gameToken },
+      { $push: { playerAnswers: { username, answer } } }
+    );
+
+    res.json({ success: true });
 
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Error submitting answer' 
-    });
+    console.error('Error submitting answer:', error);
+    res.status(500).json({ message: 'Error submitting answer' });
   }
 });
 

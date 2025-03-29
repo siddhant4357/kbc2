@@ -1,70 +1,27 @@
 const mongoose = require('mongoose');
 
 const gameStateSchema = new mongoose.Schema({
-  questionBankId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'QuestionBank',
-    required: true
-  },
+  questionBankId: String,
+  isActive: { type: Boolean, default: false },
   currentQuestion: {
+    id: String,
     question: String,
     options: [String],
-    correctAnswer: String
+    correctAnswer: String,
+    questionIndex: Number,
+    imageUrl: String
   },
-  currentQuestionIndex: {
-    type: Number,
-    default: 0
-  },
-  showOptions: {
-    type: Boolean,
-    default: false
-  },
-  showAnswer: {
-    type: Boolean,
-    default: false
-  },
-  isActive: {
-    type: Boolean,
-    default: false
-  },
-  timerStartedAt: {
-    type: Date,
-    default: null
-  },
-  timerDuration: {
-    type: Number,
-    default: 15 // Default 15 seconds
-  },
+  showOptions: { type: Boolean, default: false },
+  showAnswer: { type: Boolean, default: false },
+  timerStartedAt: Date,
+  timerDuration: { type: Number, default: 15 },
+  currentQuestionIndex: { type: Number, default: 0 },
+  gameToken: String,
   playerAnswers: [{
     username: String,
     answer: String,
-    timestamp: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-  activeUsers: [{
-    username: String,
-    socketId: String,
-    lastSeen: Date
-  }],
-  reconnectionToken: String
-}, { timestamps: true });
-
-gameStateSchema.methods.handleReconnection = async function(username, socketId) {
-  const user = this.activeUsers.find(u => u.username === username);
-  if (user) {
-    user.socketId = socketId;
-    user.lastSeen = new Date();
-  } else {
-    this.activeUsers.push({
-      username,
-      socketId,
-      lastSeen: new Date()
-    });
-  }
-  await this.save();
-  return this;
-};
+    timestamp: Date
+  }]
+});
 
 module.exports = mongoose.model('GameState', gameStateSchema);

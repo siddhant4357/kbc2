@@ -205,6 +205,36 @@ app.get('/api/game/:id/status', async (req, res) => {
   }
 });
 
+// Game state management routes
+app.post('/api/game/:id/showOptions', async (req, res) => {
+  try {
+    const { timerDuration } = req.body;
+    await GameState.findOneAndUpdate(
+      { questionBankId: req.params.id },
+      { 
+        showOptions: true,
+        timerStartedAt: new Date(),
+        timerDuration: timerDuration || 15
+      }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating game state' });
+  }
+});
+
+app.post('/api/game/:id/showAnswer', async (req, res) => {
+  try {
+    await GameState.findOneAndUpdate(
+      { questionBankId: req.params.id },
+      { showAnswer: true }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating game state' });
+  }
+});
+
 // Answer submission route
 app.post('/api/game/:id/answer', async (req, res) => {
   const { questionIndex, answer } = req.body;

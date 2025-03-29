@@ -52,319 +52,120 @@ io.on('connect_timeout', (timeout) => {
 
 // Add reconnection handling
 io.on('connection', (socket) => {
-  // Store user info
-  let currentUser = null;
+  let currentRoom = null;
 
-  socket.on('identify', (data) => {
-    currentUser = {
-      username: data.username,
-      isAdmin: data.isAdmin,
-      room: data.questionBankId
-    };
-    socket.join(data.questionBankId);
-
-    // Notify admin about new player
-    if (!data.isAdmin) {
-      socket.to(data.questionBankId).emit('playerJoined', {
-        username: data.username
-      });
+  // Join game room
+  socket.on('joinGame', async ({ questionBankId, username, isAdmin }) => {
+    currentRoom = questionBankId;
+    socket.join(questionBankId);
+    
+    console.log(`${username} joined game ${questionBankId}`);
+    
+    try {
+      const gameState = await GameState.findOne({ questionBankId });
+      if (gameState) {
+        socket.emit('gameStateUpdate', gameState);
+      }
+    } catch (error) {
+      console.error('Error on join:', error);
     }
   });
 
+  // Admin actions
   socket.on('adminAction', async (data) => {
-    if (!currentUser?.isAdmin) return;
-
     try {
       const gameState = await GameState.findOne({ 
-        questionBankId: currentUser.room,
-        isActive: true 
+        questionBankId: currentRoom,
       });
 
-      if (!gameState) {
-        socket.emit('error', 'Game not found or not active');
-        return;
-      }
+      if (!gameState) return;
 
       switch (data.action) {
-        case 'showOptions':
+        case 'startGame':
           await GameState.findOneAndUpdate(
-            { questionBankId: currentUser.room },
-            { 
-              showOptions: true,
-              timerStartedAt: new Date(),
-              timerDuration: data.timerDuration || 15
+            { questionBankId: currentRoom },
+            {
+              isActive: true,
+              currentQuestion: data.question,
+              showOptions: false,
+              showAnswer: false,
+              currentQuestionIndex: 0
             }
           );
-          // Broadcast to all users in the room
-          io.to(currentUser.room).emit('gameStateUpdate', {
+          io.to(currentRoom).emit('gameStateUpdate', {
+            isActive: true,
+            currentQuestion: data.question,
+            showOptions: false,
+            showAnswer: false,
+            currentQuestionIndex: 0
+          });
+          break;
+
+        case 'showOptions':
+          const now = new Date();
+          await GameState.findOneAndUpdate(
+            { questionBankId: currentRoom },
+            {
+              showOptions: true,
+              timerStartedAt: now,
+              timerDuration: data.timerDuration
+            }
+          );
+          io.to(currentRoom).emit('gameStateUpdate', {
             showOptions: true,
-            timerStartedAt: new Date(),
-            timerDuration: data.timerDuration || 15
+            timerStartedAt: now,
+            timerDuration: data.timerDuration
           });
           break;
 
         case 'showAnswer':
           await GameState.findOneAndUpdate(
-            { questionBankId: currentUser.room },
+            { questionBankId: currentRoom },
             { showAnswer: true }
           );
-          io.to(currentUser.room).emit('gameStateUpdate', {
-            showAnswer: true
-          });
+          io.to(currentRoom).emit('gameStateUpdate', { showAnswer: true });
           break;
 
         case 'nextQuestion':
-          const updatedState = await GameState.findOneAndUpdate(
-            { questionBankId: currentUser.room },
-            { 
+          await GameState.findOneAndUpdate(
+            { questionBankId: currentRoom },
+            {
               currentQuestion: data.question,
               currentQuestionIndex: data.questionIndex,
               showOptions: false,
               showAnswer: false,
               timerStartedAt: null
-            },
-            { new: true }
+            }
           );
-          io.to(currentUser.room).emit('gameStateUpdate', {
-            currentQuestion: updatedState.currentQuestion,
-            currentQuestionIndex: updatedState.currentQuestionIndex,
+          io.to(currentRoom).emit('gameStateUpdate', {
+            currentQuestion: data.question,
+            currentQuestionIndex: data.questionIndex,
             showOptions: false,
-            showAnswer: false
+            showAnswer: false,
+            timerStartedAt: null
           });
+          break;
+
+        case 'stopGame':
+          await GameState.findOneAndUpdate(
+            { questionBankId: currentRoom },
+            {
+              isActive: false,
+              showOptions: false,
+              showAnswer: false
+            }
+          );
+          io.to(currentRoom).emit('gameStateUpdate', { isActive: false });
           break;
       }
     } catch (error) {
       console.error('Error processing admin action:', error);
-      socket.emit('error', 'Failed to process action');
-    }
-  });
-
-  socket.on('playerAnswer', (data) => {
-    if (!currentUser || currentUser.isAdmin) return;
-
-    // Send answer to admin
-    socket.to(currentUser.room).emit('playerAnswer', {
-      username: currentUser.username,
-      answer: data.answer
-    });
-  });
-
-  socket.on('joinGame', async ({ id }) => {
-    socket.join(id);
-    
-    try {
-      // Get current game state
-      let gameState = await GameState.findOne({ questionBankId: id });
-      
-      // Send current state to joining user
-      if (gameState && gameState.isActive) {
-        socket.emit('gameState', {
-          currentQuestion: gameState.currentQuestion,
-          showOptions: gameState.showOptions,
-          showAnswer: gameState.showAnswer,
-          isActive: true
-        });
-      } else {
-        // Always emit waiting state if game is not active
-        socket.emit('gameState', { 
-          isActive: false,
-          currentQuestion: null,
-          showOptions: false,
-          showAnswer: false
-        });
-      }
-    } catch (error) {
-      console.error('Error joining game:', error);
-    }
-  });
-
-  socket.on('startGame', async (data) => {
-    try {
-      let gameState = await GameState.findOneAndUpdate(
-        { questionBankId: data.questionBankId },
-        {
-          questionBankId: data.questionBankId,
-          currentQuestion: {
-            ...data.question,
-            questionIndex: 0 // Ensure this is set
-          },
-          currentQuestionIndex: 0,
-          showOptions: false,
-          showAnswer: false,
-          isActive: true
-        },
-        { upsert: true, new: true }
-      );
-
-      io.to(data.questionBankId).emit('gameState', {
-        currentQuestion: gameState.currentQuestion,
-        showOptions: false,
-        showAnswer: false,
-        isActive: true
-      });
-    } catch (error) {
-      console.error('Error starting game:', error);
-    }
-  });
-
-  socket.on('questionUpdate', async (data) => {
-    try {
-      await GameState.findOneAndUpdate(
-        { questionBankId: data.questionBankId, isActive: true },
-        {
-          currentQuestion: {
-            ...data.question,
-            questionIndex: data.questionIndex,
-            question: data.question.question,
-            options: data.question.options,
-            correctAnswer: data.question.correctAnswer
-          },
-          currentQuestionIndex: data.questionIndex,
-          showOptions: false,
-          showAnswer: false
-        }
-      );
-
-      // Send both question data and index
-      io.to(data.questionBankId).emit('questionUpdate', {
-        question: data.question.question,
-        options: data.question.options,
-        correctAnswer: data.question.correctAnswer,
-        questionIndex: data.questionIndex  // Ensure this is included
-      });
-    } catch (error) {
-      console.error('Error updating question:', error);
-    }
-  });
-
-  socket.on('showOptions', async (data) => {
-    try {
-      await GameState.findOneAndUpdate(
-        { questionBankId: data.questionBankId, isActive: true },
-        { 
-          showOptions: true,
-          timerStartedAt: new Date(),
-          timerDuration: data.timerDuration || 15 // Use provided duration or default
-        }
-      );
-
-      io.to(data.questionBankId).emit('showOptions', {
-        timerStartedAt: new Date(),
-        timerDuration: data.timerDuration || 15
-      });
-    } catch (error) {
-      console.error('Error showing options:', error);
-    }
-  });
-
-  socket.on('showAnswer', async (data) => {
-    try {
-      await GameState.findOneAndUpdate(
-        { questionBankId: data.questionBankId, isActive: true },
-        { showAnswer: true }
-      );
-
-      io.to(data.questionBankId).emit('showAnswer');
-    } catch (error) {
-      console.error('Error showing answer:', error);
-    }
-  });
-
-  socket.on('answerLocked', async ({ questionBankId, answer, username }) => {
-    try {
-      const gameState = await GameState.findOne({ 
-        questionBankId, 
-        isActive: true 
-      });
-
-      if (gameState && gameState.currentQuestion) {
-        const isCorrect = answer === gameState.currentQuestion.correctAnswer;
-        
-        // Update user points
-        if (isCorrect) {
-          await UserPoints.findOneAndUpdate(
-            { username },
-            { 
-              $inc: { 
-                points: 10,
-                correctAnswers: 1,
-                totalAttempts: 1
-              } 
-            },
-            { upsert: true, new: true }
-          );
-        } else {
-          await UserPoints.findOneAndUpdate(
-            { username },
-            { $inc: { totalAttempts: 1 } },
-            { upsert: true }
-          );
-        }
-
-        // Only emit correctness to user, not points
-        socket.emit('pointsUpdate', { isCorrect });
-      }
-    } catch (error) {
-      console.error('Error processing answer:', error);
-    }
-  });
-
-  socket.on('gameStop', async ({ questionBankId }) => {
-    try {
-      await GameState.findOneAndUpdate(
-        { questionBankId },
-        { 
-          isActive: false,
-          currentQuestion: null,
-          showOptions: false,
-          showAnswer: false,
-          currentQuestionIndex: 0
-        }
-      );
-
-      // Emit stop event to all connected clients
-      io.to(questionBankId).emit('gameStop');
-    } catch (error) {
-      console.error('Error stopping game:', error);
-    }
-  });
-
-  socket.on('reconnect', async (data) => {
-    try {
-      const gameState = await GameState.findOne({ 
-        questionBankId: data.questionBankId,
-        isActive: true 
-      });
-      
-      if (gameState) {
-        socket.emit('gameStateUpdate', {
-          currentQuestion: gameState.currentQuestion,
-          showOptions: gameState.showOptions,
-          showAnswer: gameState.showAnswer,
-          timerStartedAt: gameState.timerStartedAt,
-          timerDuration: gameState.timerDuration
-        });
-      }
-    } catch (error) {
-      console.error('Error handling reconnection:', error);
     }
   });
 
   socket.on('disconnect', () => {
-    if (currentUser && !currentUser.isAdmin) {
-      socket.to(currentUser.room).emit('playerLeft', {
-        username: currentUser.username
-      });
-    }
-
-    try {
-      // Cleanup any user-specific game states
-      const user = socket.user;
-      if (user) {
-        // Handle user disconnect logic
-      }
-    } catch (error) {
-      console.error('Error handling disconnect:', error);
+    if (currentRoom) {
+      socket.leave(currentRoom);
     }
   });
 });

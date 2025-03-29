@@ -24,7 +24,7 @@ const httpServer = createServer(app);
 // Socket.IO setup with environment-based config
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: config.CLIENT_URLS,
     methods: ["GET", "POST"],
     credentials: true
   },

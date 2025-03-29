@@ -25,49 +25,50 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
     origin: config.CLIENT_URLS,
-    methods: ["GET", "POST"],
-    credentials: true
+    methods: ["GET", "POST", "OPTIONS"],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"]
   },
-  path: '/socket.io'
+  path: '/socket.io',
+  transports: ['websocket', 'polling'],
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  upgradeTimeout: 30000,
+  allowUpgrades: true,
+  cookie: false
 });
 
-const socketErrorHandler = (socket, next) => {
+// Enhance error handling and logging
+io.engine.on("connection_error", (err) => {
+  console.log('Connection error:', err);
+});
+
+io.on('connection', (socket) => {
+  console.log('New client connected:', socket.id);
+
   socket.on('error', (error) => {
     console.error('Socket error:', error);
-    socket.emit('error', 'An error occurred');
   });
-  next();
-};
 
-io.use(socketErrorHandler);
-
-// Add error handling
-io.on('connect_error', (error) => {
-  console.error('Socket connection error:', error);
-});
-
-io.on('connect_timeout', (timeout) => {
-  console.error('Socket connection timeout:', timeout);
-});
-
-// Add reconnection handling
-io.on('connection', (socket) => {
-  let currentRoom = null;
-
-  // Join game room
   socket.on('joinGame', async ({ questionBankId, username, isAdmin }) => {
-    currentRoom = questionBankId;
-    socket.join(questionBankId);
-    
-    console.log(`${username} joined game ${questionBankId}`);
-    
     try {
-      const gameState = await GameState.findOne({ questionBankId });
+      const room = questionBankId;
+      await socket.join(room);
+      console.log(`${username} joined game ${room}`);
+
+      // Notify admin about new player
+      if (!isAdmin) {
+        socket.to(room).emit('playerJoined', { username });
+      }
+
+      // Send current game state
+      const gameState = await GameState.findOne({ questionBankId: room });
       if (gameState) {
         socket.emit('gameStateUpdate', gameState);
       }
     } catch (error) {
       console.error('Error on join:', error);
+      socket.emit('error', 'Failed to join game');
     }
   });
 
@@ -75,7 +76,7 @@ io.on('connection', (socket) => {
   socket.on('adminAction', async (data) => {
     try {
       const gameState = await GameState.findOne({ 
-        questionBankId: currentRoom,
+        questionBankId: questionBankId,
       });
 
       if (!gameState) return;
@@ -83,7 +84,7 @@ io.on('connection', (socket) => {
       switch (data.action) {
         case 'startGame':
           await GameState.findOneAndUpdate(
-            { questionBankId: currentRoom },
+            { questionBankId: questionBankId },
             {
               isActive: true,
               currentQuestion: data.question,
@@ -92,7 +93,7 @@ io.on('connection', (socket) => {
               currentQuestionIndex: 0
             }
           );
-          io.to(currentRoom).emit('gameStateUpdate', {
+          io.to(questionBankId).emit('gameStateUpdate', {
             isActive: true,
             currentQuestion: data.question,
             showOptions: false,
@@ -104,14 +105,14 @@ io.on('connection', (socket) => {
         case 'showOptions':
           const now = new Date();
           await GameState.findOneAndUpdate(
-            { questionBankId: currentRoom },
+            { questionBankId: questionBankId },
             {
               showOptions: true,
               timerStartedAt: now,
               timerDuration: data.timerDuration
             }
           );
-          io.to(currentRoom).emit('gameStateUpdate', {
+          io.to(questionBankId).emit('gameStateUpdate', {
             showOptions: true,
             timerStartedAt: now,
             timerDuration: data.timerDuration
@@ -120,15 +121,15 @@ io.on('connection', (socket) => {
 
         case 'showAnswer':
           await GameState.findOneAndUpdate(
-            { questionBankId: currentRoom },
+            { questionBankId: questionBankId },
             { showAnswer: true }
           );
-          io.to(currentRoom).emit('gameStateUpdate', { showAnswer: true });
+          io.to(questionBankId).emit('gameStateUpdate', { showAnswer: true });
           break;
 
         case 'nextQuestion':
           await GameState.findOneAndUpdate(
-            { questionBankId: currentRoom },
+            { questionBankId: questionBankId },
             {
               currentQuestion: data.question,
               currentQuestionIndex: data.questionIndex,
@@ -137,7 +138,7 @@ io.on('connection', (socket) => {
               timerStartedAt: null
             }
           );
-          io.to(currentRoom).emit('gameStateUpdate', {
+          io.to(questionBankId).emit('gameStateUpdate', {
             currentQuestion: data.question,
             currentQuestionIndex: data.questionIndex,
             showOptions: false,
@@ -148,14 +149,14 @@ io.on('connection', (socket) => {
 
         case 'stopGame':
           await GameState.findOneAndUpdate(
-            { questionBankId: currentRoom },
+            { questionBankId: questionBankId },
             {
               isActive: false,
               showOptions: false,
               showAnswer: false
             }
           );
-          io.to(currentRoom).emit('gameStateUpdate', { isActive: false });
+          io.to(questionBankId).emit('gameStateUpdate', { isActive: false });
           break;
       }
     } catch (error) {
@@ -164,9 +165,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    if (currentRoom) {
-      socket.leave(currentRoom);
-    }
+    console.log('Client disconnected:', socket.id);
   });
 });
 

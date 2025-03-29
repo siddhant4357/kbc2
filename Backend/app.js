@@ -13,6 +13,9 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 
+// Add this line before other middleware
+app.set('trust proxy', 1);
+
 // Security middlewares
 app.use(helmet());
 app.use(compression());

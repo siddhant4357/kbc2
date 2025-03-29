@@ -191,6 +191,36 @@ app.post('/api/game/:id/state', async (req, res) => {
   }
 });
 
+// Add this route to your existing routes
+app.get('/api/game/:id/state', async (req, res) => {
+  try {
+    const gameState = await GameState.findOne({ 
+      questionBankId: req.params.id 
+    });
+    
+    if (!gameState) {
+      return res.status(404).json({ 
+        message: 'Game state not found' 
+      });
+    }
+
+    res.json({
+      isActive: gameState.isActive,
+      currentQuestion: gameState.currentQuestion,
+      showOptions: gameState.showOptions,
+      showAnswer: gameState.showAnswer,
+      currentQuestionIndex: gameState.currentQuestionIndex,
+      timerStartedAt: gameState.timerStartedAt,
+      timerDuration: gameState.timerDuration
+    });
+  } catch (error) {
+    console.error('Error fetching game state:', error);
+    res.status(500).json({ 
+      message: 'Error fetching game state' 
+    });
+  }
+});
+
 // Game state routes
 app.get('/api/game/:id/status', async (req, res) => {
   try {

@@ -23,7 +23,17 @@ app.use(compression());
 // Update the CORS configuration
 app.use(cors({
   origin: function(origin, callback) {
-    if (!origin || config.CLIENT_URLS.includes(origin)) {
+    // Add your deployed frontend URL and Firebase domains
+    const allowedOrigins = [
+      'http://localhost:5173', // Local frontend
+      'https://kbc-frontend-beige.vercel.app', // Your deployed frontend
+      'https://kbc-frontend-1-git-main-siddhants-projects-bf927e7a.vercel.app', // Secondary frontend
+      'https://*.firebaseapp.com',
+      'https://*.firebase.com',
+      'https://*.googleapis.com'
+    ];
+
+    if (!origin || allowedOrigins.some(allowed => origin.match(new RegExp(allowed.replace('*', '.*'))))) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -33,13 +43,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With']
 }));
-
-// Add headers for WebSocket support
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Credentials', true);
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  next();
-});
 
 // Existing middleware
 app.use(express.json());
@@ -63,10 +66,41 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      connectSrc: ["'self'", "wss:", "ws:", "your-frontend-domain.com"],
-      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: [
+        "'self'",
+        "https://kbc-frontend-beige.vercel.app",
+        "https://kbc-frontend-1-git-main-siddhants-projects-bf927e7a.vercel.app",
+        "https://*.firebaseapp.com",
+        "https://*.firebasedatabase.app",
+        "https://*.firebase.com",
+        "https://*.firebasestorage.googleapis.com",
+        "https://*.googleapis.com",
+        "wss://*.firebaseio.com",
+        "http://localhost:5173"
+      ],
+      imgSrc: ["'self'", "data:", "blob:", "https://*.firebasestorage.googleapis.com", "https://*.firebase.com"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"]
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.firebaseapp.com"],
+      frameSrc: ["'self'", "https://*.firebaseapp.com"],
+      workerSrc: ["'self'", "blob:"],
+      childSrc: ["'self'", "blob:"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      mediaSrc: ["'self'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false
+}));
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      connectSrc: [
+        "'self'",
+        "https://*.firebaseapp.com",
+        "https://*.firebasedatabase.app",
+        "wss://*.firebaseio.com"
+      ]
     }
   }
 }));
@@ -154,10 +188,6 @@ app.post('/api/game/:id/stop', async (req, res) => {
       },
       { new: true }
     );
-    
-    // Get io instance and emit game stop event
-    const io = req.app.get('io');
-    io.to(req.params.id).emit('gameStop');
     
     res.json({
       message: 'Game stopped successfully'
@@ -332,8 +362,6 @@ app.get('/api/leaderboard', async (req, res) => {
 app.delete('/api/leaderboard', async (req, res) => {
   try {
     await UserPoints.deleteMany({});
-    const io = req.app.get('io');
-    io.emit('leaderboardReset');
     res.json({ message: 'Leaderboard cleared successfully' });
   } catch (error) {
     console.error('Error clearing leaderboard:', error);
@@ -379,8 +407,10 @@ app.use((err, req, res, next) => {
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
   if (err.message === 'Not allowed by CORS') {
+    console.error('CORS Origin:', req.headers.origin);
     return res.status(403).json({
       message: 'CORS origin not allowed',
+      origin: req.headers.origin,
       allowedOrigins: config.CLIENT_URLS
     });
   }

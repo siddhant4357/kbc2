@@ -44,6 +44,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With']
 }));
 
+// Add to the CORS configuration in app.js
+app.use((req, res, next) => {
+  // Allow images to be shared across origins
+  if (req.path.startsWith('/uploads/')) {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+  next();
+});
+
 // Existing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

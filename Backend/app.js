@@ -44,6 +44,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With']
 }));
 
+// Add after your CORS middleware setup
+app.use((req, res, next) => {
+  if (req.path.startsWith('/uploads/')) {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  next();
+});
+
 // Add to the CORS configuration in app.js
 app.use((req, res, next) => {
   // Allow images to be shared across origins
@@ -62,6 +71,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   maxAge: '1d',
   etag: true
 }));
+
+// And ensure your static files middleware is set up correctly
+app.use('/uploads', express.static('uploads'));
 
 // Add rate limiting
 const limiter = rateLimit({

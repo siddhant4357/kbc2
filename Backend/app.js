@@ -23,25 +23,14 @@ app.use(compression());
 // Update the CORS configuration
 app.use(cors({
   origin: function(origin, callback) {
-    // Add your deployed frontend URL and Firebase domains
     const allowedOrigins = [
-      'http://localhost:5173', // Local frontend
-      'https://kbc-frontend-beige.vercel.app', // Your deployed frontend
-      'https://kbc-frontend-1-git-main-siddhants-projects-bf927e7a.vercel.app', // Secondary frontend
-      'https://*.firebaseapp.com',
-      'https://*.firebase.com',
-      'https://*.googleapis.com'
+      'http://localhost:5173',
+      'https://kbc-frontend-beige.vercel.app',
+      // Add any other frontend URLs
     ];
-
-    if (!origin || allowedOrigins.some(allowed => origin.match(new RegExp(allowed.replace('*', '.*'))))) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    callback(null, allowedOrigins.includes(origin) || !origin);
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Content-Length', 'X-Requested-With']
+  credentials: true
 }));
 
 // Add after your CORS middleware setup
@@ -69,7 +58,11 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static files with caching
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   maxAge: '1d',
-  etag: true
+  etag: true,
+  setHeaders: function (res, path) {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
 }));
 
 // And ensure your static files middleware is set up correctly

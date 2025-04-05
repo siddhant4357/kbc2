@@ -56,6 +56,15 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Add this middleware to serve static files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Ensure the uploads directory exists
+const uploadDir = path.join(__dirname, 'uploads', 'questions');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 // Configure static file serving
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   setHeaders: (res) => {

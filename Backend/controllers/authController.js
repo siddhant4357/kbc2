@@ -53,12 +53,13 @@ const getAllUsers = async (req, res) => {
 const deleteAllUsers = async (req, res) => {
   try {
     await User.deleteMany({ isAdmin: false });
-    // Get io instance and emit force logout event
-    const io = req.app.get('io');
-    io.emit('forceLogout');
     res.json({ message: 'All users deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting users' });
+    console.error('Detailed error:', error); // Add detailed error logging
+    res.status(500).json({ 
+      message: 'Error deleting users',
+      error: error.message  // Include error message in response
+    });
   }
 };
 

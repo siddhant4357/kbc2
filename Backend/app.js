@@ -353,8 +353,9 @@ app.post('/api/game/:id/answer', async (req, res) => {
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const leaderboard = await UserPoints.find()
-      .sort({ points: -1, correctAnswers: -1 })
-      .select('username points correctAnswers totalAttempts');
+      .sort({ points: -1 })
+      .select('username points correctAnswers totalAttempts')
+      .limit(100);
     
     res.json(leaderboard);
   } catch (error) {
@@ -370,6 +371,38 @@ app.delete('/api/leaderboard', async (req, res) => {
   } catch (error) {
     console.error('Error clearing leaderboard:', error);
     res.status(500).json({ message: 'Error clearing leaderboard' });
+  }
+});
+
+// Add leaderboard update endpoint
+app.post('/api/leaderboard/update', async (req, res) => {
+  try {
+    const { username, points, isCorrect } = req.body;
+
+    // Find user points or create new record
+    let userPoints = await UserPoints.findOne({ username });
+    
+    if (!userPoints) {
+      userPoints = new UserPoints({
+        username,
+        points: 0,
+        correctAnswers: 0,
+        totalAttempts: 0
+      });
+    }
+
+    // Update points and stats
+    userPoints.points += points;
+    if (isCorrect) {
+      userPoints.correctAnswers += 1;
+    }
+    userPoints.totalAttempts += 1;
+
+    await userPoints.save();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating leaderboard:', error);
+    res.status(500).json({ message: 'Error updating leaderboard' });
   }
 });
 

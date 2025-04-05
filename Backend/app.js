@@ -10,6 +10,7 @@ const QuestionBank = require('./models/QuestionBank');
 const GameState = require('./models/GameState');
 const UserPoints = require('./models/UserPoints');
 const rateLimit = require('express-rate-limit');
+const fs = require('fs');
 
 const app = express();
 
@@ -22,15 +23,9 @@ app.use(compression());
 
 // Update the CORS configuration
 app.use(cors({
-  origin: function(origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:5173',
-      'https://kbc-frontend-beige.vercel.app',
-      // Add any other frontend URLs
-    ];
-    callback(null, allowedOrigins.includes(origin) || !origin);
-  },
-  credentials: true
+  origin: config.CLIENT_URLS,
+  credentials: true,
+  exposedHeaders: ['Cross-Origin-Resource-Policy']
 }));
 
 // Add after your CORS middleware setup
@@ -55,18 +50,22 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files with caching
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads/questions');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure static file serving
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  maxAge: '1d',
-  etag: true,
-  setHeaders: function (res, path) {
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.setHeader('Access-Control-Allow-Origin', '*');
+  setHeaders: (res) => {
+    res.set({
+      'Access-Control-Allow-Origin': '*',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+      'Cache-Control': 'public, max-age=86400'
+    });
   }
 }));
-
-// And ensure your static files middleware is set up correctly
-app.use('/uploads', express.static('uploads'));
 
 // Add rate limiting
 const limiter = rateLimit({
@@ -75,49 +74,40 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Add to app.js at the top
+// Update helmet configuration for images
 app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      connectSrc: [
+      imgSrc: [
         "'self'",
-        "https://kbc-frontend-beige.vercel.app",
-        "https://kbc-frontend-1-git-main-siddhants-projects-bf927e7a.vercel.app",
-        "https://*.firebaseapp.com",
-        "https://*.firebasedatabase.app",
-        "https://*.firebase.com",
+        "data:",
+        "blob:",
+        "https://kbc2.onrender.com",
         "https://*.firebasestorage.googleapis.com",
-        "https://*.googleapis.com",
-        "wss://*.firebaseio.com",
-        "http://localhost:5173"
+        "*"
       ],
-      imgSrc: ["'self'", "data:", "blob:", "https://*.firebasestorage.googleapis.com", "https://*.firebase.com"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.firebaseapp.com"],
-      frameSrc: ["'self'", "https://*.firebaseapp.com"],
-      workerSrc: ["'self'", "blob:"],
-      childSrc: ["'self'", "blob:"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      mediaSrc: ["'self'"]
-    }
-  },
-  crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: false
-}));
-
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
       connectSrc: [
         "'self'",
+        "https://kbc2.onrender.com",
         "https://*.firebaseapp.com",
         "https://*.firebasedatabase.app",
-        "wss://*.firebaseio.com"
+        "wss://*.firebaseio.com",
+        "*"
       ]
     }
   }
 }));
+
+// Add this before your routes
+app.use((err, req, res, next) => {
+  if (err.code === 'ENOENT') {
+    console.error('File not found:', err);
+    return res.status(404).json({ message: 'Image not found' });
+  }
+  next(err);
+});
 
 // Auth routes
 app.post('/api/auth/login', authController.loginOrRegister);

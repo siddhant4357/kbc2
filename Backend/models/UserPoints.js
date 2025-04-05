@@ -17,7 +17,11 @@ const userPointsSchema = new mongoose.Schema({
   totalAttempts: {
     type: Number,
     default: 0
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
-}, { timestamps: true });
+});
 
 module.exports = mongoose.model('UserPoints', userPointsSchema);

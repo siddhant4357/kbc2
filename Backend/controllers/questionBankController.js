@@ -96,7 +96,12 @@ const uploadQuestionImage = async (req, res) => {
       return res.status(400).json({ message: 'No image file provided' });
     }
 
+    // Ensure the path starts with /
     const imageUrl = `/uploads/questions/${req.file.filename}`;
+    
+    // Log the file path for debugging
+    console.log('Image saved at:', path.join(__dirname, '..', imageUrl));
+    
     res.json({ imageUrl });
   } catch (error) {
     console.error('Error uploading image:', error);

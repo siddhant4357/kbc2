@@ -21,27 +21,53 @@ app.set('trust proxy', 1);
 app.use(helmet());
 app.use(compression());
 
-// Update the CORS configuration
-app.use(cors({
-  origin: config.CLIENT_URLS,
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? [
+        'https://kbc-frontend-beige.vercel.app',
+        'https://kbc-frontend-1-git-main-siddhants-projects-bf927e7a.vercel.app'
+      ]
+    : ['http://localhost:5173'], // Add your local frontend URL
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   exposedHeaders: ['Cross-Origin-Resource-Policy']
+};
+
+// Update CORS middleware
+app.use(cors(corsOptions));
+
+// Add OPTIONS handling for preflight requests
+app.options('*', cors(corsOptions));
+
+// Update helmet configuration for better CORS handling
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
+      connectSrc: ["'self'", "https:", "http:", "wss:"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      fontSrc: ["'self'", "https:", "data:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'", "https:", "http:"],
+      frameSrc: ["'self'"],
+    }
+  }
 }));
 
-// Add after your CORS middleware setup
+// Add this after your CORS middleware
 app.use((req, res, next) => {
-  if (req.path.startsWith('/uploads/')) {
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-  next();
-});
-
-// Add to the CORS configuration in app.js
-app.use((req, res, next) => {
-  // Allow images to be shared across origins
-  if (req.path.startsWith('/uploads/')) {
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
   next();
 });
@@ -82,32 +108,6 @@ const limiter = rateLimit({
   max: 100
 });
 app.use('/api/', limiter);
-
-// Update helmet configuration for images
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      imgSrc: [
-        "'self'",
-        "data:",
-        "blob:",
-        "https://kbc2.onrender.com",
-        "https://*.firebasestorage.googleapis.com",
-        "*"
-      ],
-      connectSrc: [
-        "'self'",
-        "https://kbc2.onrender.com",
-        "https://*.firebaseapp.com",
-        "https://*.firebasedatabase.app",
-        "wss://*.firebaseio.com",
-        "*"
-      ]
-    }
-  }
-}));
 
 // Add this before your routes
 app.use((err, req, res, next) => {

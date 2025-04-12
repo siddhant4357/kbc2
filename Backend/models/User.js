@@ -14,7 +14,11 @@ const userSchema = new mongoose.Schema({
   isAdmin: {
     type: Boolean,
     default: false
+  },
+  adminPasscode: {  // Add this field
+    type: String,
+    default: null
   }
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

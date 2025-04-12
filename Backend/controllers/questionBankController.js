@@ -5,16 +5,18 @@ const fs = require('fs');
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Ensure uploads directory exists
     const uploadDir = path.join(__dirname, '../uploads/questions');
+    // Ensure directory exists
     if (!fs.existsSync(uploadDir)){
       fs.mkdirSync(uploadDir, { recursive: true });
     }
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
+    // Generate a URL-safe filename
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-    cb(null, `question-${uniqueSuffix}${path.extname(file.originalname)}`);
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `question-${uniqueSuffix}${ext}`);
   }
 });
 
@@ -96,10 +98,21 @@ const uploadQuestionImage = async (req, res) => {
       return res.status(400).json({ message: 'No image file provided' });
     }
 
-    const imageUrl = `/uploads/questions/${req.file.filename}`;
-    console.log('Image saved at:', path.join(__dirname, '..', imageUrl)); // Debug log
-    
-    res.json({ imageUrl });
+    // Use consistent path format
+    const filename = req.file.filename;
+    const imageUrl = `/uploads/questions/${filename}`;
+
+    // Log the file details
+    console.log('Image upload:', {
+      filename,
+      path: req.file.path,
+      url: imageUrl
+    });
+
+    res.json({ 
+      imageUrl,
+      fullUrl: `${process.env.API_URL}${imageUrl}`
+    });
   } catch (error) {
     console.error('Error uploading image:', error);
     res.status(500).json({ message: 'Error uploading image' });

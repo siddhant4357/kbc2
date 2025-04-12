@@ -8,11 +8,12 @@ const loginOrRegister = async (req, res) => {
     let user = await User.findOne({ username });
     
     if (!user) {
-      // Create new user
+      // Create new user - regular user
       user = new User({
         username,
         passcode,
-        isAdmin: username === 'admin' && passcode === '1234' // hardcoded admin credentials
+        isAdmin: false,
+        adminPasscode: null
       });
       await user.save();
     } else {
@@ -22,21 +23,56 @@ const loginOrRegister = async (req, res) => {
       }
     }
 
-    // Generate JWT token
+    // Don't send adminPasscode in response
+    const userResponse = {
+      username: user.username,
+      isAdmin: user.isAdmin
+    };
+
     const token = jwt.sign(
-      { username: user.username, isAdmin: user.isAdmin },
+      userResponse,
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
     
-    res.json({ 
-      user: {
-        username: user.username,
-        isAdmin: user.isAdmin
-      },
-      token
-    });
+    res.json({ user: userResponse, token });
   } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Add new controller to create admin
+const createAdmin = async (req, res) => {
+  try {
+    const { username, passcode, adminPasscode } = req.body;
+    
+    // Check if requester is an admin
+    const requesterToken = req.headers.authorization?.split(' ')[1];
+    if (!requesterToken) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const decoded = jwt.verify(requesterToken, process.env.JWT_SECRET);
+    const requester = await User.findOne({ username: decoded.username });
+    
+    if (!requester?.isAdmin) {
+      return res.status(403).json({ message: 'Only admins can create other admins' });
+    }
+
+    // Create new admin user
+    const newAdmin = new User({
+      username,
+      passcode,
+      isAdmin: true,
+      adminPasscode
+    });
+
+    await newAdmin.save();
+
+    res.status(201).json({ message: 'Admin created successfully' });
+  } catch (error) {
+    console.error('Create admin error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -65,6 +101,7 @@ const deleteAllUsers = async (req, res) => {
 
 module.exports = { 
   loginOrRegister,
+  createAdmin,
   getAllUsers,
   deleteAllUsers
 };

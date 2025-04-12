@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 
 const config = {
   PORT: process.env.PORT || 4000,
@@ -10,7 +11,7 @@ const config = {
       ]
     : ['http://localhost:5173'],
   JWT_SECRET: process.env.JWT_SECRET,
-  uploadPath: 'uploads'
+  uploadPath: path.join(__dirname, '../uploads')
 };
 
 module.exports = config;

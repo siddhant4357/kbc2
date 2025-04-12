@@ -6,33 +6,21 @@ const initializeDb = async () => {
   try {
     await connectDB();
     
-    // Create admin users
-    const adminUsers = [
-      {
-        username: 'admin',
-        passcode: '4321',
-        isAdmin: true,
-        adminPasscode: '4321'  // Main admin
-      },
-      {
-        username: 'superadmin',
-        passcode: '5678',
-        isAdmin: true,
-        adminPasscode: '5678'  // Another admin
-      }
-      // Add more admin users as needed
-    ];
+    // Create single admin user
+    const adminUser = {
+      username: 'admin',
+      passcode: '1234',
+      isAdmin: true
+    };
 
-    // Create or update admin users
-    for (const adminData of adminUsers) {
-      await User.findOneAndUpdate(
-        { username: adminData.username },
-        adminData,
-        { upsert: true, new: true }
-      );
-    }
+    // Create or update admin user
+    await User.findOneAndUpdate(
+      { username: adminUser.username },
+      adminUser,
+      { upsert: true, new: true }
+    );
 
-    console.log('Admin users initialized successfully');
+    console.log('Admin user initialized successfully');
     process.exit(0);
   } catch (error) {
     console.error('Error initializing database:', error);

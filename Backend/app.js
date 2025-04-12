@@ -368,6 +368,24 @@ app.post('/api/game/:id/answer', async (req, res) => {
   }
 });
 
+app.post('/api/game/:id/leave', async (req, res) => {
+  try {
+    const { username } = req.body;
+    const { id } = req.params;
+    
+    // Update game state if needed
+    await GameState.findOneAndUpdate(
+      { questionBankId: id },
+      { $pull: { players: { username } } }
+    );
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error handling player leave:', error);
+    res.status(500).json({ message: 'Error processing leave request' });
+  }
+});
+
 // Leaderboard routes
 app.get('/api/leaderboard', async (req, res) => {
   try {

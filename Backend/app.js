@@ -133,6 +133,9 @@ app.post('/api/auth/login', authController.loginOrRegister);
 app.get('/api/users', authController.getAllUsers);
 app.delete('/api/users', authController.deleteAllUsers);
 
+// Add this with your other routes
+app.post('/api/admin/create', authController.createAdmin);
+
 // Question Bank routes
 app.get('/api/questionbanks', questionBankController.getAllQuestionBanks);
 app.post('/api/questionbanks', questionBankController.createQuestionBank);

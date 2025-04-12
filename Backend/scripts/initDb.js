@@ -1,36 +1,38 @@
 require('dotenv').config();
 const connectDB = require('../db/db');
-const QuestionBank = require('../models/QuestionBank');
 const User = require('../models/User');
 
 const initializeDb = async () => {
   try {
     await connectDB();
     
-    // Create admin user
-    const admin = new User({
-      username: 'admin',
-      passcode: '1234',
-      isAdmin: true
-    });
-    await admin.save();
+    // Create admin users
+    const adminUsers = [
+      {
+        username: 'admin',
+        passcode: '4321',
+        isAdmin: true,
+        adminPasscode: '4321'  // Main admin
+      },
+      {
+        username: 'superadmin',
+        passcode: '5678',
+        isAdmin: true,
+        adminPasscode: '5678'  // Another admin
+      }
+      // Add more admin users as needed
+    ];
 
-    // Create sample question bank
-    const sampleBank = new QuestionBank({
-      name: 'Sample Questions',
-      passcode: '0000',
-      questions: [
-        {
-          question: 'What is the capital of India?',
-          options: ['Mumbai', 'New Delhi', 'Kolkata', 'Chennai'],
-          correctAnswer: 'New Delhi'
-        }
-      ],
-      createdBy: admin._id
-    });
-    await sampleBank.save();
+    // Create or update admin users
+    for (const adminData of adminUsers) {
+      await User.findOneAndUpdate(
+        { username: adminData.username },
+        adminData,
+        { upsert: true, new: true }
+      );
+    }
 
-    console.log('Database initialized successfully');
+    console.log('Admin users initialized successfully');
     process.exit(0);
   } catch (error) {
     console.error('Error initializing database:', error);

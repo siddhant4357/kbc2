@@ -42,41 +42,6 @@ const loginOrRegister = async (req, res) => {
   }
 };
 
-// Add new controller to create admin
-const createAdmin = async (req, res) => {
-  try {
-    const { username, passcode, adminPasscode } = req.body;
-    
-    // Check if requester is an admin
-    const requesterToken = req.headers.authorization?.split(' ')[1];
-    if (!requesterToken) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
-
-    const decoded = jwt.verify(requesterToken, process.env.JWT_SECRET);
-    const requester = await User.findOne({ username: decoded.username });
-    
-    if (!requester?.isAdmin) {
-      return res.status(403).json({ message: 'Only admins can create other admins' });
-    }
-
-    // Create new admin user
-    const newAdmin = new User({
-      username,
-      passcode,
-      isAdmin: true,
-      adminPasscode
-    });
-
-    await newAdmin.save();
-
-    res.status(201).json({ message: 'Admin created successfully' });
-  } catch (error) {
-    console.error('Create admin error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
 const getAllUsers = async (req, res) => {
   try {
     const users = await User.find({ isAdmin: false });
@@ -101,7 +66,6 @@ const deleteAllUsers = async (req, res) => {
 
 module.exports = { 
   loginOrRegister,
-  createAdmin,
   getAllUsers,
   deleteAllUsers
 };

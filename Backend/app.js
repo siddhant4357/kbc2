@@ -82,8 +82,17 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Add this middleware to serve static files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve static files with caching headers
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  maxAge: '100d',
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, path) => {
+    // Enable CORS for images
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+  }
+}));
 
 // Ensure the uploads directory exists
 const uploadDir = path.join(__dirname, 'uploads', 'questions');

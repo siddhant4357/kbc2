@@ -223,37 +223,32 @@ app.post('/api/game/:id/stop', async (req, res) => {
 });
 
 app.post('/api/game/:id/state', async (req, res) => {
-  const { gameToken } = req.body;
-  
   try {
-    let gameState = await GameState.findOne({ 
-      gameToken,
-      questionBankId: req.params.id 
-    });
+    const { currentQuestion, showOptions, showAnswer, timerStartedAt, timerDuration } = req.body;
     
+    const gameState = await GameState.findOneAndUpdate(
+      { questionBankId: req.params.id },
+      { 
+        currentQuestion,
+        showOptions,
+        showAnswer,
+        timerStartedAt,
+        timerDuration,
+        $set: {
+          'players.$[].lockedAnswer': null  // Reset locked answers for all players
+        }
+      },
+      { new: true }
+    );
+
     if (!gameState) {
-      // Create default game state if none exists
-      gameState = {
-        isActive: false,
-        currentQuestion: null,
-        showOptions: false,
-        showAnswer: false,
-        currentQuestionIndex: 0
-      };
+      return res.status(404).json({ message: 'Game state not found' });
     }
-    
+
     res.json(gameState);
   } catch (error) {
-    console.error('Error fetching game state:', error);
-    res.status(500).json({ 
-      message: 'Error fetching game state',
-      fallback: {
-        isActive: false,
-        currentQuestion: null,
-        showOptions: false,
-        showAnswer: false
-      }
-    });
+    console.error('Error updating game state:', error);
+    res.status(500).json({ message: 'Error updating game state' });
   }
 });
 

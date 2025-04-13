@@ -433,19 +433,17 @@ app.post('/api/leaderboard/update', async (req, res) => {
   try {
     const { username, points, isCorrect } = req.body;
 
-    // Find user points or create new record
     let userPoints = await UserPoints.findOne({ username });
-    
+
     if (!userPoints) {
       userPoints = new UserPoints({
         username,
         points: 0,
         correctAnswers: 0,
-        totalAttempts: 0
+        totalAttempts: 0,
       });
     }
 
-    // Update points and stats
     userPoints.points += points;
     if (isCorrect) {
       userPoints.correctAnswers += 1;

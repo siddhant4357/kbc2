@@ -381,6 +381,28 @@ app.post('/api/game/:id/leave', async (req, res) => {
   }
 });
 
+// Add next question route
+app.post('/api/game/:id/nextQuestion', async (req, res) => {
+  try {
+    const gameState = await GameState.findOneAndUpdate(
+      { questionBankId: req.params.id },
+      { 
+        currentQuestion: req.body.currentQuestion,
+        showOptions: false,
+        showAnswer: false,
+        timerStartedAt: null,
+        'players.$[].lockedAnswer': null  // Reset all players' locked answers
+      },
+      { new: true }
+    );
+
+    res.json(gameState);
+  } catch (error) {
+    console.error('Error updating game state:', error);
+    res.status(500).json({ message: 'Error updating game state' });
+  }
+});
+
 // Leaderboard routes
 app.get('/api/leaderboard', async (req, res) => {
   try {

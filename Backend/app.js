@@ -404,10 +404,45 @@ app.post('/api/game/:id/nextQuestion', async (req, res) => {
 });
 
 // Leaderboard routes
+app.post('/api/leaderboard/update', async (req, res) => {
+  try {
+    const { username, points, isCorrect } = req.body;
+
+    let userPoints = await UserPoints.findOne({ username });
+
+    if (!userPoints) {
+      userPoints = new UserPoints({
+        username,
+        points: 0,
+        correctAnswers: 0,
+        totalAttempts: 0
+      });
+    }
+
+    userPoints.points += points;
+    if (isCorrect) {
+      userPoints.correctAnswers += 1;
+    }
+    userPoints.totalAttempts += 1;
+    userPoints.lastUpdated = Date.now();
+
+    await userPoints.save();
+
+    res.json({ 
+      success: true, 
+      points: userPoints.points, 
+      correctAnswers: userPoints.correctAnswers 
+    });
+  } catch (error) {
+    console.error('Error updating leaderboard:', error);
+    res.status(500).json({ message: 'Error updating leaderboard' });
+  }
+});
+
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const leaderboard = await UserPoints.find()
-      .sort({ points: -1 })
+      .sort({ points: -1, correctAnswers: -1 })
       .select('username points correctAnswers totalAttempts')
       .limit(100);
     
@@ -425,36 +460,6 @@ app.delete('/api/leaderboard', async (req, res) => {
   } catch (error) {
     console.error('Error clearing leaderboard:', error);
     res.status(500).json({ message: 'Error clearing leaderboard' });
-  }
-});
-
-// Add leaderboard update endpoint
-app.post('/api/leaderboard/update', async (req, res) => {
-  try {
-    const { username, points, isCorrect } = req.body;
-
-    let userPoints = await UserPoints.findOne({ username });
-
-    if (!userPoints) {
-      userPoints = new UserPoints({
-        username,
-        points: 0,
-        correctAnswers: 0,
-        totalAttempts: 0,
-      });
-    }
-
-    userPoints.points += points;
-    if (isCorrect) {
-      userPoints.correctAnswers += 1;
-    }
-    userPoints.totalAttempts += 1;
-
-    await userPoints.save();
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error updating leaderboard:', error);
-    res.status(500).json({ message: 'Error updating leaderboard' });
   }
 });
 

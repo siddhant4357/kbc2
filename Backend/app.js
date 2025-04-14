@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
+const multer = require('multer');
 const config = require('./config/config');
 const authController = require('./controllers/authController');
 const questionBankController = require('./controllers/questionBankController');
@@ -12,6 +13,35 @@ const UserPoints = require('./models/UserPoints');
 const FastestFinger = require('./models/FastestFinger');
 const rateLimit = require('express-rate-limit');
 const fs = require('fs');
+
+// Add multer storage configuration
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, 'uploads/questions');
+    if (!fs.existsSync(uploadDir)){
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `fastest-finger-${uniqueSuffix}${ext}`);
+  }
+});
+
+// Create multer upload middleware
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Not an image file'));
+    }
+  }
+});
 
 const app = express();
 
@@ -532,7 +562,17 @@ app.post('/api/upload/fastest-finger-image', upload.single('image'), async (req,
     const filename = req.file.filename;
     const imageUrl = `/uploads/questions/${filename}`;
 
-    res.json({ imageUrl });
+    // Log the file details for debugging
+    console.log('Image upload:', {
+      filename,
+      path: req.file.path,
+      url: imageUrl
+    });
+
+    res.json({ 
+      imageUrl,
+      fullUrl: `${process.env.API_URL}${imageUrl}`
+    });
   } catch (error) {
     console.error('Error uploading image:', error);
     res.status(500).json({ message: 'Error uploading image' });

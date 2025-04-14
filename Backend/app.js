@@ -9,6 +9,7 @@ const questionBankController = require('./controllers/questionBankController');
 const QuestionBank = require('./models/QuestionBank');
 const GameState = require('./models/GameState');
 const UserPoints = require('./models/UserPoints');
+const FastestFinger = require('./models/FastestFinger');
 const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 
@@ -400,6 +401,44 @@ app.post('/api/game/:id/nextQuestion', async (req, res) => {
   } catch (error) {
     console.error('Error updating game state:', error);
     res.status(500).json({ message: 'Error updating game state' });
+  }
+});
+
+// Fastest Finger routes
+// Create Fastest Finger game
+app.post('/api/fastest-finger/create', async (req, res) => {
+  try {
+    const fastestFinger = new FastestFinger({
+      ...req.body,
+      createdBy: req.user._id
+    });
+    await fastestFinger.save();
+    res.status(201).json(fastestFinger);
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating fastest finger game' });
+  }
+});
+
+// Get all Fastest Finger games
+app.get('/api/fastest-finger', async (req, res) => {
+  try {
+    const games = await FastestFinger.find();
+    res.json(games);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching fastest finger games' });
+  }
+});
+
+// Get specific Fastest Finger game
+app.get('/api/fastest-finger/:id', async (req, res) => {
+  try {
+    const game = await FastestFinger.findById(req.params.id);
+    if (!game) {
+      return res.status(404).json({ message: 'Game not found' });
+    }
+    res.json(game);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching game' });
   }
 });
 

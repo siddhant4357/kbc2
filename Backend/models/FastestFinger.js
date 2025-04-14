@@ -8,17 +8,30 @@ const fastestFingerSchema = new mongoose.Schema({
   passcode: {
     type: String,
     required: true,
-    length: 4
+    minlength: 4,
+    maxlength: 4
   },
   question: {
-    text: String,
-    options: [String],
-    correctSequence: [Number],
-    imageUrl: String
+    text: {
+      type: String,
+      required: true
+    },
+    options: [{
+      type: String,
+      required: true
+    }],
+    correctSequence: [{
+      type: Number,
+      required: true
+    }],
+    imageUrl: {
+      type: String
+    }
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
+    required: true
   }
 }, { timestamps: true });
 

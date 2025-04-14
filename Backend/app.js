@@ -405,7 +405,6 @@ app.post('/api/game/:id/nextQuestion', async (req, res) => {
 });
 
 // Fastest Finger routes
-// Create Fastest Finger game
 app.post('/api/fastest-finger/create', async (req, res) => {
   try {
     const fastestFinger = new FastestFinger({
@@ -459,6 +458,19 @@ app.post('/api/fastest-finger/validate', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ message: 'Error validating game' });
+  }
+});
+
+app.post('/api/fastest-finger/submit', async (req, res) => {
+  try {
+    const { bankId, sequence, isCorrect } = req.body;
+    
+    // You can store the submission in your database here if needed
+    // For now, just sending back success response
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Error submitting sequence' });
   }
 });
 

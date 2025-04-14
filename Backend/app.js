@@ -13,6 +13,7 @@ const UserPoints = require('./models/UserPoints');
 const FastestFinger = require('./models/FastestFinger');
 const rateLimit = require('express-rate-limit');
 const fs = require('fs');
+const cookieParser = require('cookie-parser');
 
 // Add multer storage configuration
 const storage = multer.diskStorage({
@@ -106,6 +107,9 @@ app.use((req, res, next) => {
 // Existing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Add this before your routes
+app.use(cookieParser());
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads/questions');
@@ -437,14 +441,47 @@ app.post('/api/game/:id/nextQuestion', async (req, res) => {
 // Fastest Finger routes
 app.post('/api/fastest-finger/create', async (req, res) => {
   try {
+    // Get user from cookies instead of req.user
+    const userStr = req.cookies.user;
+    if (!userStr) {
+      return res.status(401).json({ message: 'Unauthorized - No user found in cookies' });
+    }
+    
+    const user = JSON.parse(userStr);
+    if (!user.isAdmin) {
+      return res.status(401).json({ message: 'Unauthorized - Admin access required' });
+    }
+
+    const { name, passcode, question } = req.body;
+
+    // Validate input
+    if (!name || !passcode || !question.text || !question.options || !question.correctSequence) {
+      return res.status(400).json({ 
+        message: 'Missing required fields',
+        received: { name, passcode, question }
+      });
+    }
+
+    // Create new game
     const fastestFinger = new FastestFinger({
-      ...req.body,
-      createdBy: req.user._id
+      name,
+      passcode,
+      question,
+      createdBy: user._id || 'admin' // Fallback if _id is not available
     });
+
+    // Save to database
     await fastestFinger.save();
+    console.log('Fastest finger game created:', fastestFinger);
+
     res.status(201).json(fastestFinger);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating fastest finger game' });
+    console.error('Error creating fastest finger game:', error);
+    res.status(500).json({ 
+      message: 'Error creating game', 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 

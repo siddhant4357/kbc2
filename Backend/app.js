@@ -3,46 +3,14 @@ const cors = require('cors');
 const path = require('path');
 const helmet = require('helmet');
 const compression = require('compression');
-const multer = require('multer');
 const config = require('./config/config');
 const authController = require('./controllers/authController');
 const questionBankController = require('./controllers/questionBankController');
 const QuestionBank = require('./models/QuestionBank');
 const GameState = require('./models/GameState');
 const UserPoints = require('./models/UserPoints');
-const FastestFinger = require('./models/FastestFinger');
 const rateLimit = require('express-rate-limit');
 const fs = require('fs');
-
-
-// Add multer storage configuration
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, 'uploads/questions');
-    if (!fs.existsSync(uploadDir)){
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `fastest-finger-${uniqueSuffix}${ext}`);
-  }
-});
-
-// Create multer upload middleware
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Not an image file'));
-    }
-  }
-});
 
 const app = express();
 
@@ -107,8 +75,6 @@ app.use((req, res, next) => {
 // Existing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads/questions');
@@ -434,184 +400,6 @@ app.post('/api/game/:id/nextQuestion', async (req, res) => {
   } catch (error) {
     console.error('Error updating game state:', error);
     res.status(500).json({ message: 'Error updating game state' });
-  }
-});
-
-// Fastest Finger routes
-app.post('/api/fastest-finger/create', async (req, res) => {
-  try {
-    // Get user from cookies instead of req.user
-    const userStr = req.cookies.user;
-    if (!userStr) {
-      return res.status(401).json({ message: 'Unauthorized - No user found in cookies' });
-    }
-    
-    const user = JSON.parse(userStr);
-    if (!user.isAdmin) {
-      return res.status(401).json({ message: 'Unauthorized - Admin access required' });
-    }
-
-    const { name, passcode, question } = req.body;
-
-    // Validate input
-    if (!name || !passcode || !question.text || !question.options || !question.correctSequence) {
-      return res.status(400).json({ 
-        message: 'Missing required fields',
-        received: { name, passcode, question }
-      });
-    }
-
-    // Create new game
-    const fastestFinger = new FastestFinger({
-      name,
-      passcode,
-      question,
-      createdBy: user._id || 'admin' // Fallback if _id is not available
-    });
-
-    // Save to database
-    await fastestFinger.save();
-    console.log('Fastest finger game created:', fastestFinger);
-
-    res.status(201).json(fastestFinger);
-  } catch (error) {
-    console.error('Error creating fastest finger game:', error);
-    res.status(500).json({ 
-      message: 'Error creating game', 
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-});
-
-// Get all Fastest Finger games
-app.get('/api/fastest-finger', async (req, res) => {
-  try {
-    const games = await FastestFinger.find();
-    res.json(games);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching fastest finger games' });
-  }
-});
-
-// Get specific Fastest Finger game
-app.get('/api/fastest-finger/:id', async (req, res) => {
-  try {
-    const game = await FastestFinger.findById(req.params.id);
-    if (!game) {
-      return res.status(404).json({ message: 'Game not found' });
-    }
-    res.json(game);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching game' });
-  }
-});
-
-// Validate fastest finger passcode
-app.post('/api/fastest-finger/validate', async (req, res) => {
-  try {
-    const { bankId, passcode } = req.body;
-    const game = await FastestFinger.findById(bankId);
-    
-    if (!game) {
-      return res.status(404).json({ message: 'Game not found' });
-    }
-
-    if (game.passcode !== passcode) {
-      return res.status(401).json({ message: 'Invalid passcode' });
-    }
-
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ message: 'Error validating game' });
-  }
-});
-
-app.post('/api/fastest-finger/submit', async (req, res) => {
-  try {
-    const { bankId, sequence, isCorrect } = req.body;
-    
-    // You can store the submission in your database here if needed
-    // For now, just sending back success response
-    
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ message: 'Error submitting sequence' });
-  }
-});
-
-// Create Fastest Finger Game
-app.post('/api/fastest-finger/create', async (req, res) => {
-  try {
-    // Get user from request
-    const userStr = req.cookies.user;
-    if (!userStr) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
-    const user = JSON.parse(userStr);
-
-    const { name, passcode, question } = req.body;
-
-    // Validate input
-    if (!name || !passcode || !question.text || !question.options || !question.correctSequence) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    // Create new game
-    const fastestFinger = new FastestFinger({
-      name,
-      passcode,
-      question,
-      createdBy: user._id
-    });
-
-    // Save to database
-    await fastestFinger.save();
-
-    res.status(201).json(fastestFinger);
-  } catch (error) {
-    console.error('Error creating fastest finger game:', error);
-    res.status(500).json({ message: 'Error creating game', error: error.message });
-  }
-});
-
-// Get all Fastest Finger games
-app.get('/api/fastest-finger', async (req, res) => {
-  try {
-    const games = await FastestFinger.find()
-      .select('-question.correctSequence') // Don't send correct sequence to client
-      .sort({ createdAt: -1 });
-    res.json(games);
-  } catch (error) {
-    console.error('Error fetching fastest finger games:', error);
-    res.status(500).json({ message: 'Error fetching games' });
-  }
-});
-
-// Image upload for fastest finger
-app.post('/api/upload/fastest-finger-image', upload.single('image'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No image file provided' });
-    }
-
-    const filename = req.file.filename;
-    const imageUrl = `/uploads/questions/${filename}`;
-
-    // Log the file details for debugging
-    console.log('Image upload:', {
-      filename,
-      path: req.file.path,
-      url: imageUrl
-    });
-
-    res.json({ 
-      imageUrl,
-      fullUrl: `${process.env.API_URL}${imageUrl}`
-    });
-  } catch (error) {
-    console.error('Error uploading image:', error);
-    res.status(500).json({ message: 'Error uploading image' });
   }
 });
 

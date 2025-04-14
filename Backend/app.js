@@ -13,7 +13,7 @@ const UserPoints = require('./models/UserPoints');
 const FastestFinger = require('./models/FastestFinger');
 const rateLimit = require('express-rate-limit');
 const fs = require('fs');
-const cookieParser = require('cookie-parser');
+
 
 // Add multer storage configuration
 const storage = multer.diskStorage({
@@ -108,8 +108,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Add this before your routes
-app.use(cookieParser());
+
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads/questions');

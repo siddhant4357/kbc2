@@ -474,6 +474,71 @@ app.post('/api/fastest-finger/submit', async (req, res) => {
   }
 });
 
+// Create Fastest Finger Game
+app.post('/api/fastest-finger/create', async (req, res) => {
+  try {
+    // Get user from request
+    const userStr = req.cookies.user;
+    if (!userStr) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const user = JSON.parse(userStr);
+
+    const { name, passcode, question } = req.body;
+
+    // Validate input
+    if (!name || !passcode || !question.text || !question.options || !question.correctSequence) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Create new game
+    const fastestFinger = new FastestFinger({
+      name,
+      passcode,
+      question,
+      createdBy: user._id
+    });
+
+    // Save to database
+    await fastestFinger.save();
+
+    res.status(201).json(fastestFinger);
+  } catch (error) {
+    console.error('Error creating fastest finger game:', error);
+    res.status(500).json({ message: 'Error creating game', error: error.message });
+  }
+});
+
+// Get all Fastest Finger games
+app.get('/api/fastest-finger', async (req, res) => {
+  try {
+    const games = await FastestFinger.find()
+      .select('-question.correctSequence') // Don't send correct sequence to client
+      .sort({ createdAt: -1 });
+    res.json(games);
+  } catch (error) {
+    console.error('Error fetching fastest finger games:', error);
+    res.status(500).json({ message: 'Error fetching games' });
+  }
+});
+
+// Image upload for fastest finger
+app.post('/api/upload/fastest-finger-image', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file provided' });
+    }
+
+    const filename = req.file.filename;
+    const imageUrl = `/uploads/questions/${filename}`;
+
+    res.json({ imageUrl });
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    res.status(500).json({ message: 'Error uploading image' });
+  }
+});
+
 // Leaderboard routes
 app.post('/api/leaderboard/update', async (req, res) => {
   try {

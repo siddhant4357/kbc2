@@ -442,6 +442,26 @@ app.get('/api/fastest-finger/:id', async (req, res) => {
   }
 });
 
+// Validate fastest finger passcode
+app.post('/api/fastest-finger/validate', async (req, res) => {
+  try {
+    const { bankId, passcode } = req.body;
+    const game = await FastestFinger.findById(bankId);
+    
+    if (!game) {
+      return res.status(404).json({ message: 'Game not found' });
+    }
+
+    if (game.passcode !== passcode) {
+      return res.status(401).json({ message: 'Invalid passcode' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: 'Error validating game' });
+  }
+});
+
 // Leaderboard routes
 app.post('/api/leaderboard/update', async (req, res) => {
   try {

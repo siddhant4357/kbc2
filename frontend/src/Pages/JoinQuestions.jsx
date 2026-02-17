@@ -136,10 +136,15 @@ const JoinQuestions = () => {
       audio.loop = !!options.loop;
 
       try {
-        await audio.load(); // Ensure audio is loaded before playing
-        await audio.play();
+        // await audio.load(); // Removed to prevent interrupting playback
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.error(`Error playing ${key}:`, error);
+          });
+        }
       } catch (error) {
-        console.error(`Error playing ${key}:`, error);
+        console.error(`Error initiating play for ${key}:`, error);
       }
     } catch (error) {
       console.error(`Error in playSound ${key}:`, error);
@@ -232,59 +237,47 @@ const JoinQuestions = () => {
     };
   }, [showGameEndPopup, redirectTimer, navigate, id]);
 
+  // Result sound effect (Triggered once)
+  useEffect(() => {
+    if (showAnswer && lockedAnswer) {
+      const playResultSound = async () => {
+        await stopAllSounds();
+        const soundKey = lockedAnswer === currentQuestion.correctAnswer ? 'correct' : 'wrong';
+        await playSound(soundKey);
+      };
+      playResultSound();
+    }
+  }, [showAnswer, lockedAnswer, currentQuestion]);
+
+  // Question Tune (State-based)
   useEffect(() => {
     if (currentQuestion && !showOptions && !showAnswer && !lockedAnswer) {
       const playQuestionSound = async () => {
-        await stopAllSounds();
+        // Only stop other sounds if we are starting this one
         await playSound('question');
       };
       playQuestionSound();
-    }
-
-    return () => {
+    } else {
       stopSound('question');
-    };
-  }, [currentQuestion?.question]);
-
-  useEffect(() => {
-    if (questionBank?.questions) {
-      setCurrentQuestion(questionBank.questions[currentQuestionIndex]);
     }
-  }, [questionBank, currentQuestionIndex]);
+  }, [currentQuestion, showOptions, showAnswer, lockedAnswer]);
 
+  // Timer Sound (State-based)
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        stopAllSounds();
-        setIsSoundPaused(true);
-      }
-    };
+    if (showOptions && !showAnswer && !lockedAnswer && !isTimerStopped && !isInfiniteTimer && !timeExpired) {
+      playSound('timer', { loop: true });
+    } else {
+      stopSound('timer');
+    }
+  }, [showOptions, showAnswer, lockedAnswer, isTimerStopped, isInfiniteTimer, timeExpired]);
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      stopAllSounds();
-    };
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(`questionIndex_${id}`, currentQuestionIndex);
-  }, [currentQuestionIndex, id]);
-
-  useEffect(() => {
-    return () => {
-      stopAllSounds();
-    };
-  }, []);
 
   const handleShowOptions = async () => {
     setTimeLeft(customTimerInput);
     setTimerDuration(customTimerInput);
     setShowOptions(true);
     setTimerStarted(true);
-
-    await stopAllSounds();
-    await playSound('timer', { loop: true });
+    // Sound handled by useEffect
   };
 
   const handleOptionSelect = (option) => {
@@ -299,10 +292,7 @@ const JoinQuestions = () => {
       setTimerStarted(false);
       setShowAnswer(true);
       setIsInfiniteTimer(false);
-
-      await stopAllSounds();
-      const soundKey = selectedOption === currentQuestion.correctAnswer ? 'correct' : 'wrong';
-      await playSound(soundKey);
+      // Sound handled by useEffect
     }
   };
 
@@ -394,9 +384,10 @@ const JoinQuestions = () => {
     await stopAllSounds();
     setIsSoundPaused(false);
 
-    if (timerStarted && timeLeft > 0) {
+    // Re-trigger effects
+    if (showOptions && !isTimerStopped) {
       playSound('timer', { loop: true });
-    } else if (currentQuestion && !showOptions) {
+    } else if (!showOptions) {
       playSound('question');
     }
   };
@@ -531,8 +522,8 @@ const JoinQuestions = () => {
             <>
               <div className="question-image mb-4 flex justify-center transition-all duration-300">
                 <div className={`relative w-full max-w-xl ${showOptions || (selectedOption && !lockedAnswer)
-                    ? 'h-32 sm:h-40 lg:h-66'
-                    : 'h-48 sm:h-64 lg:h-88'
+                  ? 'h-32 sm:h-40 lg:h-66'
+                  : 'h-48 sm:h-64 lg:h-88'
                   }`}>
                   <img
                     src={currentQuestion.imageUrl
@@ -704,10 +695,10 @@ const JoinQuestions = () => {
                 <div
                   key={prize}
                   className={`py-1 px-2 rounded-sm transition-all text-center ${index === currentQuestionIndex
-                      ? 'bg-kbc-gold text-kbc-dark-blue font-bold shadow-glow'
-                      : index < currentQuestionIndex
-                        ? 'text-white bg-kbc-blue/20'
-                        : 'text-kbc-gold'
+                    ? 'bg-kbc-gold text-kbc-dark-blue font-bold shadow-glow'
+                    : index < currentQuestionIndex
+                      ? 'text-white bg-kbc-blue/20'
+                      : 'text-kbc-gold'
                     }`}
                 >
                   {prize}

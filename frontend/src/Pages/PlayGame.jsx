@@ -858,7 +858,10 @@ const PlayGame = () => {
                   : 'h-40 sm:h-64' // Adjusted height for mobile
                   }`}>
                   <ImageErrorBoundary>
-                    <QuestionImage imageUrl={currentQuestion.imageUrl} />
+                    <QuestionImage
+                      key={currentQuestion.questionIndex}
+                      imageUrl={currentQuestion.imageUrl}
+                    />
                   </ImageErrorBoundary>
                 </div>
               </div>

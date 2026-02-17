@@ -1,49 +1,289 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
-import io from 'socket.io-client';
-import { API_URL, SOCKET_URL } from '../utils/config';
+import { API_URL } from '../utils/config';
+import { useFirebaseGameState } from '../hooks/useFirebaseGameState';
+import { ref, set } from 'firebase/database';
+import { db } from '../utils/firebase';
 
 const ManagePlayAlong = () => {
   const [questionBanks, setQuestionBanks] = useState([]);
   const [selectedBank, setSelectedBank] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
-  const [socket, setSocket] = useState(null);
   const [isButtonPressed, setIsButtonPressed] = useState('');
   const [success, setSuccess] = useState('');
-  const [timerDuration, setTimerDuration] = useState(15);
+  const [timerDuration, setTimerDuration] = useState(30);
+  const [pollInterval, setPollInterval] = useState(null);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { gameState, updateGameState } = useFirebaseGameState(selectedBank?._id);
+
+  // Define theme colors
+  const colors = {
+    darkBlue: '#000B3E',
+    blue: '#0B1D78',
+    lightBlue: '#1C3FAA',
+    gold: '#FFB800',
+    light: '#E5E9FF',
+    purple: '#4C1D95',
+    red: '#DC2626',
+    darkRed: '#B91C1C',
+    green: '#10B981',
+  };
+
+  // All component styles
+  const styles = {
+    pageContainer: {
+      minHeight: '100vh',
+      padding: '1rem',
+      background: `radial-gradient(circle at center, ${colors.purple}15 0%, ${colors.darkBlue}15 100%)`,
+      fontFamily: "'Poppins', sans-serif",
+    },
+    contentContainer: {
+      maxWidth: '72rem',
+      margin: '0 auto',
+      background: `linear-gradient(135deg, ${colors.darkBlue}, ${colors.purple})`,
+      clipPath: 'polygon(5% 0, 95% 0, 100% 5%, 100% 95%, 95% 100%, 5% 100%, 0 95%, 0 5%)',
+      border: `2px solid ${colors.lightBlue}`,
+      boxShadow: `0 0 20px rgba(28, 63, 170, 0.3), inset 0 0 15px rgba(28, 63, 170, 0.3)`,
+      padding: '1.5rem',
+      borderRadius: '0.75rem',
+      backdropFilter: 'blur(10px)',
+    },
+    headerContainer: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '1rem',
+      marginBottom: '2rem',
+    },
+    title: {
+      fontSize: '2.25rem',
+      color: colors.gold,
+      fontWeight: 'bold',
+      textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
+    },
+    successAlert: {
+      backgroundColor: 'rgba(16, 185, 129, 0.2)',
+      color: 'rgba(167, 243, 208, 1)',
+      padding: '1rem',
+      borderRadius: '0.5rem',
+      marginBottom: '1.5rem',
+      animation: 'fadeIn 0.5s ease-out forwards',
+    },
+    errorAlert: {
+      backgroundColor: 'rgba(239, 68, 68, 0.2)',
+      color: 'rgba(252, 165, 165, 1)',
+      padding: '1rem',
+      borderRadius: '0.5rem',
+      marginBottom: '1.5rem',
+      animation: 'fadeIn 0.5s ease-out forwards',
+    },
+    cardContainer: {
+      display: 'grid',
+      gridTemplateColumns: '1fr',
+      gap: '2rem',
+    },
+    card: {
+      background: `linear-gradient(135deg, ${colors.darkBlue}, ${colors.purple})`,
+      clipPath: 'polygon(5% 0, 95% 0, 100% 5%, 100% 95%, 95% 100%, 5% 100%, 0 95%, 0 5%)',
+      border: `2px solid ${colors.lightBlue}`,
+      boxShadow: `0 0 20px rgba(28, 63, 170, 0.3), inset 0 0 15px rgba(28, 63, 170, 0.3)`,
+      padding: '1.5rem',
+      borderRadius: '0.75rem',
+      transition: 'all 0.3s ease',
+    },
+    cardHover: {
+      transform: 'translateY(-5px)',
+      boxShadow: '0 10px 20px rgba(0, 0, 0, 0.2)',
+    },
+    cardSubtitle: {
+      fontSize: '1.25rem',
+      fontWeight: 'bold',
+      color: colors.gold,
+      marginBottom: '1rem',
+    },
+    select: {
+      width: '100%',
+      maxWidth: '100%',
+      padding: '0.75rem 1rem',
+      background: 'rgba(0, 11, 62, 0.6)',
+      border: `2px solid rgba(28, 63, 170, 0.5)`,
+      borderRadius: '0.75rem',
+      color: 'white',
+      fontSize: '1rem',
+      transition: 'all 0.3s ease',
+      cursor: 'pointer',
+      appearance: 'none',
+      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23FFB800'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'right 1rem center',
+      backgroundSize: '1.5em',
+      paddingRight: '2.5rem',
+    },
+    selectFocus: {
+      outline: 'none',
+      borderColor: colors.gold,
+      boxShadow: '0 0 0 3px rgba(255, 184, 0, 0.25)',
+      background: 'rgba(0, 11, 62, 0.8)',
+    },
+    selectOption: {
+      backgroundColor: colors.darkBlue,
+      color: colors.light,
+      padding: '12px',
+      minHeight: '40px',
+      borderBottom: '1px solid rgba(255, 184, 0, 0.1)',
+    },
+    buttonContainer: {
+      marginTop: '1.5rem',
+    },
+    button: {
+      background: `linear-gradient(135deg, ${colors.lightBlue}, ${colors.blue})`,
+      color: colors.light,
+      border: `1px solid ${colors.gold}`,
+      padding: '0.75rem 1.5rem',
+      borderRadius: '0.5rem',
+      fontWeight: 600,
+      cursor: 'pointer',
+      transition: 'all 0.3s ease',
+      textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: '120px',
+      width: '100%',
+    },
+    buttonHover: {
+      background: `linear-gradient(135deg, ${colors.blue}, ${colors.darkBlue})`,
+      transform: 'translateY(-2px)',
+      boxShadow: '0 4px 12px rgba(28, 63, 170, 0.3)',
+    },
+    redButton: {
+      background: `linear-gradient(135deg, ${colors.red}, ${colors.darkRed})`,
+    },
+    redButtonHover: {
+      background: `linear-gradient(135deg, ${colors.darkRed}, ${colors.red})`,
+      transform: 'translateY(-2px)',
+      boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+    },
+    disabledButton: {
+      opacity: 0.5,
+      cursor: 'not-allowed',
+    },
+    pressedButton: {
+      transform: 'scale(0.95)',
+    },
+    pulseAnimation: {
+      animation: 'pulse 2s infinite',
+    },
+    questionCard: {
+      backgroundColor: 'rgba(0, 11, 62, 0.2)',
+      padding: '1rem',
+      borderRadius: '0.5rem',
+      marginBottom: '1rem',
+    },
+    questionLabel: {
+      color: colors.gold,
+      fontWeight: 500,
+      marginBottom: '0.5rem',
+    },
+    questionText: {
+      color: 'white',
+    },
+    grid: {
+      display: 'grid',
+      gridTemplateColumns: '1fr',
+      gap: '1rem',
+      marginBottom: '1rem',
+    },
+    gridMd: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, 1fr)',
+      gap: '1rem',
+      marginBottom: '1rem',
+    },
+    timerCard: {
+      padding: '1rem',
+      borderRadius: '0.5rem',
+      background: 'rgba(11, 29, 120, 0.7)',
+      border: `1px solid ${colors.lightBlue}`,
+    },
+    timerLabel: {
+      display: 'block',
+      color: colors.gold,
+      fontSize: '0.875rem',
+      marginBottom: '0.5rem',
+    },
+    timerInputContainer: {
+      position: 'relative',
+      display: 'flex',
+      alignItems: 'center',
+      maxWidth: '150px',
+    },
+    timerInput: {
+      width: '100%',
+      padding: '0.75rem 1rem',
+      paddingRight: '3rem', // Make room for the "sec" indicator
+      background: 'rgba(0, 11, 62, 0.6)',
+      border: `2px solid rgba(28, 63, 170, 0.5)`,
+      borderRadius: '0.75rem',
+      color: 'white',
+      fontSize: '1rem',
+      transition: 'all 0.3s ease',
+      appearance: 'none', // Remove browser default styling
+      MozAppearance: 'textfield', // Firefox
+    },
+    timerUnit: {
+      position: 'absolute',
+      right: '1rem',
+      color: 'rgba(255, 255, 255, 0.6)',
+      pointerEvents: 'none', // Ensures clicks pass through to the input
+    },
+  };
 
   useEffect(() => {
-    // Check if user is admin
     const user = JSON.parse(localStorage.getItem('user'));
     if (!user || !user.isAdmin) {
       navigate('/dashboard');
       return;
     }
 
-    // Use environment variable for socket connection
-    const newSocket = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'], // Fallback to polling if websocket fails
-      secure: process.env.NODE_ENV === 'production',
-      reconnection: true,
-      reconnectionAttempts: 5
-    });
-    
-    setSocket(newSocket);
     fetchQuestionBanks();
-
-    return () => newSocket.disconnect();
   }, [navigate]);
+
+  useEffect(() => {
+    // Test Firebase connection
+    const testRef = ref(db, `test/${Date.now()}`);
+    set(testRef, {
+      timestamp: Date.now(),
+      message: 'Connection test'
+    })
+      .then(() => {
+        console.log('Firebase connection successful');
+        // Clean up test data
+        set(testRef, null);
+      })
+      .catch((error) => {
+        console.error('Firebase connection failed:', error);
+        setError('Failed to connect to Firebase. Please check your connection.');
+      });
+  }, []);
+
+  useEffect(() => {
+    if (error) {
+      // Show error message to user
+      console.error('Game error:', error);
+      setTimeout(() => setError(null), 5000); // Clear error after 5 seconds
+    }
+  }, [error]);
 
   const fetchQuestionBanks = async () => {
     try {
       const response = await fetch(`${API_URL}/api/questionbanks`, {
         credentials: 'include',
         headers: {
-          'Accept': 'application/json'
-        }
+          Accept: 'application/json',
+        },
       });
       const data = await response.json();
       setQuestionBanks(data);
@@ -53,49 +293,120 @@ const ManagePlayAlong = () => {
   };
 
   const handleBankSelect = async (bankId) => {
-    const bank = questionBanks.find(b => b._id === bankId);
+    const bank = questionBanks.find((b) => b._id === bankId);
     setSelectedBank(bank);
     setCurrentQuestionIndex(0);
     setGameStarted(false);
   };
 
-  const startGame = () => {
-    if (selectedBank) {
-      setGameStarted(true);
-      socket.emit('startGame', {
-        questionBankId: selectedBank._id,
-        question: {
+  const startGame = async () => {
+    if (!selectedBank) return;
+
+    try {
+      const user = JSON.parse(localStorage.getItem('user'));
+      if (!user?.isAdmin) {
+        setError('Only admins can start the game');
+        return;
+      }
+
+      const gameData = {
+        isActive: true,
+        admin: user.username,
+        gameToken: Date.now().toString(),
+        currentQuestion: {
           ...selectedBank.questions[0],
-          question: selectedBank.questions[0].question,
-          options: selectedBank.questions[0].options,
-          correctAnswer: selectedBank.questions[0].correctAnswer,
-          questionIndex: 0  // Make sure this is included
-        }
-      });
-    }
-  };
-
-  const showNextQuestion = () => {
-    if (currentQuestionIndex < selectedBank.questions.length - 1) {
-      const nextIndex = currentQuestionIndex + 1;
-      setCurrentQuestionIndex(nextIndex);
-      socket.emit('questionUpdate', {
+          questionIndex: 0,
+          imageUrl: selectedBank.questions[0].imageUrl || '',
+        },
+        showOptions: false,
+        showAnswer: false,
+        timerStartedAt: null,
+        timerDuration: parseInt(timerDuration),
+        players: {},
+        startedAt: Date.now(),
         questionBankId: selectedBank._id,
-        question: selectedBank.questions[nextIndex],
-        questionIndex: nextIndex // Make sure this is included
-      });
+      };
+
+      // Update Firebase
+      const gameRef = ref(db, `games/${selectedBank._id}`);
+      await set(gameRef, gameData);
+      
+      setGameStarted(true);
+      // console.log('Game started successfully');
+    } catch (err) {
+      console.error('Error starting game:', err);
+      setError('Failed to start game. Please check your permissions.');
     }
   };
 
-  const showOptions = () => {
-    socket.emit('showOptions', { 
-      questionBankId: selectedBank._id,
-      timerDuration: parseInt(timerDuration)
-    });
+  const showNextQuestion = async () => {
+    if (gameStarted && currentQuestionIndex < selectedBank.questions.length - 1) {
+      const nextIndex = currentQuestionIndex + 1;
+      await updateGameState({
+        currentQuestion: {
+          ...selectedBank.questions[nextIndex],
+          questionIndex: nextIndex,
+        },
+        showOptions: false,
+        showAnswer: false,
+        timerStartedAt: null,
+      });
+      setCurrentQuestionIndex(nextIndex);
+    }
+    
   };
 
-  const showAnswer = () => {
-    socket.emit('showAnswer', { questionBankId: selectedBank._id });
+  const showOptions = async () => {
+    if (!gameStarted) return;
+
+    try {
+      const duration = Math.max(5, parseInt(timerDuration) || 15);
+
+      await updateGameState({
+        showOptions: true,
+        timerStartedAt: Date.now(),
+        timerDuration: duration,
+        updatedAt: Date.now(),
+      });
+      console.log('Options shown successfully with timer duration:', duration);
+    } catch (err) {
+      console.error('Error showing options:', err);
+      setError('Failed to show options. Please try again.');
+    }
+  };
+
+  const showAnswer = async () => {
+    if (!gameStarted) return;
+
+    try {
+      await updateGameState({
+        showAnswer: true,
+        updatedAt: Date.now(),
+      });
+      console.log('Answer shown successfully');
+    } catch (err) {
+      console.error('Error showing answer:', err);
+      setError('Failed to show answer. Please try again.');
+    }
+  };
+
+  const stopGame = async () => {
+    try {
+      await updateGameState({
+        isActive: false,
+        currentQuestion: null,
+        showOptions: false,
+        showAnswer: false,
+        timerStartedAt: null,
+        timerDuration: 0,
+        gameStopped: true, // Add this flag
+      });
+      setGameStarted(false);
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Error stopping game:', err);
+      setError('Failed to stop game. Please try again.');
+    }
   };
 
   const handleButtonPress = (buttonName) => {
@@ -103,51 +414,98 @@ const ManagePlayAlong = () => {
     setTimeout(() => setIsButtonPressed(''), 200);
   };
 
-  // Update stopGame to use API_URL
-  const stopGame = async () => {
-    try {
-      handleButtonPress('stop');
-      const response = await fetch(`${API_URL}/api/game/${selectedBank._id}/stop`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        setSuccess('Game stopped successfully');
-        setGameStarted(false);
-        // Add this line to reset question index when stopping
-        setCurrentQuestionIndex(0);
-        setTimeout(() => setSuccess(''), 3000);
+  useEffect(() => {
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
       }
-    } catch (error) {
-      console.error('Error stopping game:', error);
-    }
-  };
+    };
+  }, [pollInterval]);
+
+  // Determine if we should use mobile or desktop grid based on window width
+  const useGridStyle = window.innerWidth >= 640 ? styles.gridMd : styles.grid;
 
   return (
-    <div className="min-h-screen p-4 sm:p-8">
-      <div className="max-w-6xl mx-auto kbc-card p-6 sm:p-8 rounded-xl">
-        <div className="flex items-center space-x-4 mb-8">
+    <div style={styles.pageContainer}>
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+          }
+          
+          @media (max-width: 640px) {
+            .title {
+              font-size: 1.5rem !important;
+            }
+            .card {
+              padding: 1rem !important;
+            }
+            .button {
+              padding: 0.75rem 1rem !important;
+              font-size: 0.875rem !important;
+            }
+            .select, .input {
+              font-size: 16px !important; /* Prevent zoom on mobile */
+            }
+          }
+
+          input[type="number"]::-webkit-inner-spin-button,
+          input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+          }
+        `}
+      </style>
+
+      <div style={styles.contentContainer} className="card">
+        <div style={styles.headerContainer}>
           <BackButton to="/dashboard" />
-          <h1 className="text-4xl kbc-title">Manage Play Along</h1>
+          <h1 style={styles.title} className="title">
+            Manage Play Along
+          </h1>
         </div>
 
-        {success && (
-          <div className="bg-green-500 bg-opacity-20 text-green-100 p-4 rounded-lg mb-6 animate-fadeIn">
-            {success}
+        {success && <div style={styles.successAlert}>{success}</div>}
+
+        {error && (
+          <div className="text-red-500 bg-red-100 p-4 rounded-md mb-4">
+            {error}
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-8">
-          <div className="kbc-card hover-card">
-            <h2 className="text-xl font-bold text-kbc-gold mb-4">Select Question Bank</h2>
+        <div style={styles.cardContainer}>
+          <div
+            style={styles.card}
+            className="card"
+            onMouseOver={(e) => Object.assign(e.currentTarget.style, styles.cardHover)}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = '';
+              e.currentTarget.style.boxShadow = '';
+            }}
+          >
+            <h2 style={styles.cardSubtitle}>Select Question Bank</h2>
             <select
               value={selectedBank?._id || ''}
               onChange={(e) => handleBankSelect(e.target.value)}
-              className="kbc-select"
+              style={styles.select}
+              className="select"
+              onFocus={(e) => Object.assign(e.target.style, styles.selectFocus)}
+              onBlur={(e) => {
+                e.target.style.outline = '';
+                e.target.style.borderColor = 'rgba(28, 63, 170, 0.5)';
+                e.target.style.boxShadow = '';
+                e.target.style.background = 'rgba(0, 11, 62, 0.6)';
+              }}
             >
               <option value="">Select a question bank</option>
-              {questionBanks.map(bank => (
+              {questionBanks.map((bank) => (
                 <option key={bank._id} value={bank._id}>
                   {bank.name}
                 </option>
@@ -155,79 +513,131 @@ const ManagePlayAlong = () => {
             </select>
 
             {selectedBank && (
-              <div className="space-y-6">
+              <div style={{ marginTop: '1.5rem' }}>
                 {!gameStarted ? (
                   <button
                     onClick={() => {
                       handleButtonPress('start');
                       startGame();
                     }}
-                    className={`kbc-button1 w-full animate-pulse ${
-                      isButtonPressed === 'start' ? 'transform scale-95' : ''
-                    }`}
+                    style={{
+                      ...styles.button,
+                      ...(isButtonPressed === 'start' ? styles.pressedButton : {}),
+                      animation: 'pulse 2s infinite',
+                    }}
+                    className="button"
+                    onMouseOver={(e) => {
+                      if (!isButtonPressed) Object.assign(e.currentTarget.style, styles.buttonHover);
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = `linear-gradient(135deg, ${colors.lightBlue}, ${colors.blue})`;
+                      e.currentTarget.style.transform = isButtonPressed === 'start' ? 'scale(0.95)' : '';
+                      e.currentTarget.style.boxShadow = '';
+                    }}
                   >
                     Start Game
                   </button>
                 ) : (
                   <>
-                    <div className="kbc-card bg-opacity-20 p-4 rounded-lg">
-                      <h3 className="text-kbc-gold font-medium mb-2">Current Question:</h3>
-                      <p className="text-white">{selectedBank.questions[currentQuestionIndex].question}</p>
+                    <div style={styles.questionCard}>
+                      <h3 style={styles.questionLabel}>Current Question:</h3>
+                      <p style={styles.questionText}>
+                        {selectedBank.questions[currentQuestionIndex].question}
+                      </p>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="kbc-card">
-                        <label className="block text-kbc-gold text-sm mb-2">
-                          Timer Duration (seconds)
-                        </label>
-                        <input
-                          type="number"
-                          min="5"
-                          max="60"
-                          value={timerDuration}
-                          onChange={(e) => setTimerDuration(e.target.value)}
-                          className="kbc-input"
-                        />
+                    <div style={useGridStyle}>
+                      <div style={styles.timerCard}>
+                        <label style={styles.timerLabel}>Timer Duration (seconds)</label>
+                        <div style={styles.timerInputContainer}>
+                          <input
+                            type="number"
+                            min="5"
+                            max="200"
+                            value={timerDuration}
+                            onChange={(e) => setTimerDuration(e.target.value)}
+                            style={styles.timerInput}
+                            className="input"
+                            onFocus={(e) => Object.assign(e.currentTarget.style, styles.timerInputFocus)}
+                            onBlur={(e) => {
+                              e.currentTarget.style.outline = '';
+                              e.currentTarget.style.borderColor = 'rgba(28, 63, 170, 0.5)';
+                              e.currentTarget.style.boxShadow = '';
+                              e.currentTarget.style.background = 'rgba(0, 11, 62, 0.6)';
+                            }}
+                          />
+                          <span style={styles.timerUnit}>sec</span>
+                        </div>
                       </div>
                       <button
                         onClick={() => {
                           handleButtonPress('options');
                           showOptions();
                         }}
-                        className={`kbc-button1 ${
-                          isButtonPressed === 'options' ? 'transform scale-95' : ''
-                        }`}
+                        style={{
+                          ...styles.button,
+                          ...(isButtonPressed === 'options' ? styles.pressedButton : {}),
+                        }}
+                        className="button"
+                        onMouseOver={(e) => {
+                          if (!isButtonPressed) Object.assign(e.currentTarget.style, styles.buttonHover);
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.background = `linear-gradient(135deg, ${colors.lightBlue}, ${colors.blue})`;
+                          e.currentTarget.style.transform = isButtonPressed === 'options' ? 'scale(0.95)' : '';
+                          e.currentTarget.style.boxShadow = '';
+                        }}
                       >
                         Show Options
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div style={useGridStyle}>
                       <button
                         onClick={() => {
                           handleButtonPress('answer');
                           showAnswer();
                         }}
-                        className={`kbc-button1 ${
-                          isButtonPressed === 'answer' ? 'transform scale-95' : ''
-                        }`}
+                        style={{
+                          ...styles.button,
+                          ...(isButtonPressed === 'answer' ? styles.pressedButton : {}),
+                        }}
+                        className="button"
+                        onMouseOver={(e) => {
+                          if (!isButtonPressed) Object.assign(e.currentTarget.style, styles.buttonHover);
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.background = `linear-gradient(135deg, ${colors.lightBlue}, ${colors.blue})`;
+                          e.currentTarget.style.transform = isButtonPressed === 'answer' ? 'scale(0.95)' : '';
+                          e.currentTarget.style.boxShadow = '';
+                        }}
                       >
                         Show Answer
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div style={useGridStyle}>
                       <button
                         onClick={() => {
                           handleButtonPress('next');
                           showNextQuestion();
                         }}
                         disabled={currentQuestionIndex === selectedBank.questions.length - 1}
-                        className={`kbc-button1 ${
-                          currentQuestionIndex === selectedBank.questions.length - 1 
-                          ? 'opacity-50 cursor-not-allowed' 
-                          : ''
-                        } ${isButtonPressed === 'next' ? 'transform scale-95' : ''}`}
+                        style={{
+                          ...styles.button,
+                          ...(currentQuestionIndex === selectedBank.questions.length - 1
+                            ? styles.disabledButton
+                            : {}),
+                        }}
+                        className="button"
+                        onMouseOver={(e) => {
+                          if (!isButtonPressed) Object.assign(e.currentTarget.style, styles.buttonHover);
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.background = `linear-gradient(135deg, ${colors.lightBlue}, ${colors.blue})`;
+                          e.currentTarget.style.transform = isButtonPressed === 'next' ? 'scale(0.95)' : '';
+                          e.currentTarget.style.boxShadow = '';
+                        }}
                       >
                         Next Question
                       </button>
@@ -236,9 +646,20 @@ const ManagePlayAlong = () => {
                           handleButtonPress('stop');
                           stopGame();
                         }}
-                        className={`kbc-button1 bg-red-600 hover:bg-red-700 ${
-                          isButtonPressed === 'stop' ? 'transform scale-95' : ''
-                        }`}
+                        style={{
+                          ...styles.button,
+                          ...styles.redButton,
+                          ...(isButtonPressed === 'stop' ? styles.pressedButton : {}),
+                        }}
+                        className="button"
+                        onMouseOver={(e) => {
+                          if (!isButtonPressed) Object.assign(e.currentTarget.style, styles.redButtonHover);
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.background = `linear-gradient(135deg, ${colors.red}, ${colors.darkRed})`;
+                          e.currentTarget.style.transform = isButtonPressed === 'stop' ? 'scale(0.95)' : '';
+                          e.currentTarget.style.boxShadow = '';
+                        }}
                       >
                         Stop Game
                       </button>

@@ -18,47 +18,52 @@ const app = express();
 app.set('trust proxy', 1);
 
 // Security middlewares
-app.use(helmet());
-app.use(compression());
-
-const corsOptions = {
-  origin: process.env.NODE_ENV === 'production'
-    ? [
-      'https://kbg-olive.vercel.app',
-      'https://kbc-frontend-1-git-main-siddhants-projects-bf927e7a.vercel.app',
-      process.env.FRONTEND_URL
-    ].filter(Boolean)
-    : ['http://localhost:5173'], // Add your local frontend URL
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  exposedHeaders: ['Cross-Origin-Resource-Policy']
-};
-
-// Update CORS middleware
-app.use(cors(corsOptions));
-
-// Add OPTIONS handling for preflight requests
-app.options('*', cors(corsOptions));
-
-// Update helmet configuration for better CORS handling
+// Security middlewares
+// Use only one helmet configuration
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "blob:", "https:", "http:", "res.cloudinary.com"], // Added Cloudinary domain
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:", "res.cloudinary.com"],
       connectSrc: ["'self'", "https:", "http:", "wss:"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       fontSrc: ["'self'", "https:", "data:"],
       objectSrc: ["'none'"],
-      mediaSrc: ["'self'", "https:", "http:", "res.cloudinary.com"], // Added Cloudinary domain
+      mediaSrc: ["'self'", "https:", "http:", "res.cloudinary.com"],
       frameSrc: ["'self'"],
     }
   }
 }));
+
+app.use(compression());
+
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://kbg-olive.vercel.app',
+  'https://kbc-frontend-beige.vercel.app',
+  'https://kbc-frontend-1-git-main-siddhants-projects-bf927e7a.vercel.app',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || !process.env.NODE_ENV || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  exposedHeaders: ['Cross-Origin-Resource-Policy']
+};
 
 // Add this after your CORS middleware
 app.use((req, res, next) => {

@@ -24,9 +24,10 @@ app.use(compression());
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production'
     ? [
-      'https://kbc-frontend-beige.vercel.app',
-      'https://kbc-frontend-1-git-main-siddhants-projects-bf927e7a.vercel.app'
-    ]
+      'https://kbg-olive.vercel.app',
+      'https://kbc-frontend-1-git-main-siddhants-projects-bf927e7a.vercel.app',
+      process.env.FRONTEND_URL
+    ].filter(Boolean)
     : ['http://localhost:5173'], // Add your local frontend URL
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

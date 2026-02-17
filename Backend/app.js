@@ -65,6 +65,12 @@ const corsOptions = {
   exposedHeaders: ['Cross-Origin-Resource-Policy']
 };
 
+// Update CORS middleware
+app.use(cors(corsOptions));
+
+// Add OPTIONS handling for preflight requests
+app.options('*', cors(corsOptions));
+
 // Add this after your CORS middleware
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin);

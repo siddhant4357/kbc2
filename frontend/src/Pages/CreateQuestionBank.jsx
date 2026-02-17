@@ -50,10 +50,10 @@ const CreateQuestionBank = () => {
       }
 
       const data = await response.json();
-      
+
       const newQuestions = [...questions];
       // Store the full URL instead of just the path
-      newQuestions[questionIndex].imageUrl = `${API_URL}${data.imageUrl}`;
+      newQuestions[questionIndex].imageUrl = data.imageUrl;
       setQuestions(newQuestions);
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -661,7 +661,7 @@ const CreateQuestionBank = () => {
                       {q.imageUrl && (
                         <>
                           <img
-                            src={q.imageUrl}
+                            src={q.imageUrl.startsWith('http') ? q.imageUrl : `${API_URL}${q.imageUrl}`}
                             alt="Question"
                             className="h-20 w-20 object-cover rounded-lg"
                             onError={(e) => {

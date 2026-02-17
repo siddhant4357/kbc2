@@ -1,36 +1,7 @@
 const QuestionBank = require('../models/QuestionBank');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, '../uploads/questions');
-    // Ensure directory exists
-    if (!fs.existsSync(uploadDir)){
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // Generate a URL-safe filename
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `question-${uniqueSuffix}${ext}`);
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only images are allowed'));
-    }
-  }
-});
+const { storage } = require('../config/cloudinary');
+const upload = multer({ storage: storage });
 
 const getAllQuestionBanks = async (req, res) => {
   try {
@@ -99,19 +70,18 @@ const uploadQuestionImage = async (req, res) => {
     }
 
     // Use consistent path format
-    const filename = req.file.filename;
-    const imageUrl = `/uploads/questions/${filename}`;
+    // Cloudinary returns the full URL in `path`
+    const imageUrl = req.file.path;
 
     // Log the file details
     console.log('Image upload:', {
-      filename,
-      path: req.file.path,
+      filename: req.file.filename,
       url: imageUrl
     });
 
-    res.json({ 
+    res.json({
       imageUrl,
-      fullUrl: `${process.env.API_URL}${imageUrl}`
+      fullUrl: imageUrl
     });
   } catch (error) {
     console.error('Error uploading image:', error);

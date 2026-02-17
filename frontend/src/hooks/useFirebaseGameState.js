@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ref, onValue, set, onDisconnect, serverTimestamp } from 'firebase/database';
 import { db } from '../utils/firebase';
 
-export const useFirebaseGameState = (gameId) => {
+export const useFirebaseGameState = (gameId, subPath = '') => {
   const [gameState, setGameState] = useState(null);
   const [error, setError] = useState(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -12,7 +12,8 @@ export const useFirebaseGameState = (gameId) => {
   useEffect(() => {
     if (!gameId) return;
 
-    const gameRef = ref(db, `games/${gameId}`);
+    const path = subPath ? `games/${gameId}/${subPath}` : `games/${gameId}`;
+    const gameRef = ref(db, path);
     const connectedRef = ref(db, '.info/connected');
     connectionRef.current = connectedRef;
 
@@ -20,14 +21,14 @@ export const useFirebaseGameState = (gameId) => {
     const connectUnsubscribe = onValue(connectedRef, (snap) => {
       const connected = snap.val() === true;
       setIsConnected(connected);
-      
-      if (connected) {
+
+      if (connected && !subPath) { // Only handle presence if listening to root (or specifically configured)
         // Create presence ref under the game path instead of .info
         const presenceRef = ref(db, `games/${gameId}/presence/${Date.now()}`);
-        
+
         // Set offline status on disconnect
         onDisconnect(presenceRef).remove();
-        
+
         // Set online status
         set(presenceRef, {
           status: 'online',
@@ -54,37 +55,41 @@ export const useFirebaseGameState = (gameId) => {
       connectUnsubscribe();
       gameUnsubscribe();
       // Clear any disconnect handlers
-      if (gameRef) {
+      if (gameRef && !subPath) {
         const presenceRef = ref(db, `games/${gameId}/presence/${Date.now()}`);
         onDisconnect(presenceRef).cancel();
       }
     };
-  }, [gameId]);
+  }, [gameId, subPath]);
 
   const updateGameState = useCallback(async (updates) => {
     if (!gameId || !isConnected) return false;
 
     try {
-      const gameRef = ref(db, `games/${gameId}`);
-      const newState = {
+      const path = subPath ? `games/${gameId}/${subPath}` : `games/${gameId}`;
+      const gameRef = ref(db, path);
+
+      // If we're updating a subpath, we might need to handle merging differently
+      // providing a flexible update mechanism
+
+      await set(gameRef, {
         ...gameState,
         ...updates,
         updatedAt: Date.now()
-      };
-      await set(gameRef, newState);
+      });
       return true;
     } catch (err) {
       console.error('Error updating game state:', err);
       setError('Failed to update game state');
       return false;
     }
-  }, [gameId, gameState, isConnected]);
+  }, [gameId, gameState, isConnected, subPath]);
 
-  return { 
-    gameState, 
-    error, 
-    updateGameState, 
+  return {
+    gameState,
+    error,
+    updateGameState,
     isInitialized,
-    isConnected 
+    isConnected
   };
 };

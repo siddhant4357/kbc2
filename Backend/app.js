@@ -22,11 +22,11 @@ app.use(helmet());
 app.use(compression());
 
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
+  origin: process.env.NODE_ENV === 'production'
     ? [
-        'https://kbc-frontend-beige.vercel.app',
-        'https://kbc-frontend-1-git-main-siddhants-projects-bf927e7a.vercel.app'
-      ]
+      'https://kbc-frontend-beige.vercel.app',
+      'https://kbc-frontend-1-git-main-siddhants-projects-bf927e7a.vercel.app'
+    ]
     : ['http://localhost:5173'], // Add your local frontend URL
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -47,13 +47,13 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:", "res.cloudinary.com"], // Added Cloudinary domain
       connectSrc: ["'self'", "https:", "http:", "wss:"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       fontSrc: ["'self'", "https:", "data:"],
       objectSrc: ["'none'"],
-      mediaSrc: ["'self'", "https:", "http:"],
+      mediaSrc: ["'self'", "https:", "http:", "res.cloudinary.com"], // Added Cloudinary domain
       frameSrc: ["'self'"],
     }
   }
@@ -65,7 +65,7 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -76,31 +76,8 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads/questions');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Serve static files with caching headers
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  maxAge: '100d',
-  etag: true,
-  lastModified: true,
-  setHeaders: (res, path) => {
-    // Enable CORS for images
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-  }
-}));
-
-// Ensure the uploads directory exists
-const uploadDir = path.join(__dirname, 'uploads', 'questions');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Update static file serving configuration
+// Serve static files (Legacy support / Fallback)
+// Note: New images are uploaded to Cloudinary
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   setHeaders: (res) => {
     res.set({
@@ -141,8 +118,8 @@ app.put('/api/questionbanks/:id', questionBankController.updateQuestionBank);
 app.delete('/api/questionbanks/:id', questionBankController.deleteQuestionBank);
 
 // Add image upload route
-app.post('/api/upload/question-image', 
-  questionBankController.upload.single('image'), 
+app.post('/api/upload/question-image',
+  questionBankController.upload.single('image'),
   questionBankController.uploadQuestionImage
 );
 
@@ -150,10 +127,10 @@ app.post('/api/upload/question-image',
 // Update the game join route to handle game tokens
 app.post('/api/game/join', async (req, res) => {
   const { questionBankId, passcode } = req.body;
-  
+
   try {
     const questionBank = await QuestionBank.findById(questionBankId);
-    
+
     if (!questionBank) {
       return res.status(404).json({ message: 'Question bank not found' });
     }
@@ -169,7 +146,7 @@ app.post('/api/game/join', async (req, res) => {
     // Create or update game state
     const gameState = await GameState.findOneAndUpdate(
       { questionBankId },
-      { 
+      {
         $setOnInsert: {
           questionBankId,
           isActive: false,
@@ -202,7 +179,7 @@ app.post('/api/game/:id/stop', async (req, res) => {
     // Update game state to inactive and reset all fields
     await GameState.findOneAndUpdate(
       { questionBankId: req.params.id },
-      { 
+      {
         isActive: false,
         currentQuestion: null,
         showOptions: false,
@@ -211,13 +188,13 @@ app.post('/api/game/:id/stop', async (req, res) => {
       },
       { new: true }
     );
-    
+
     res.json({
       message: 'Game stopped successfully'
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Error stopping game' 
+    res.status(500).json({
+      message: 'Error stopping game'
     });
   }
 });
@@ -225,10 +202,10 @@ app.post('/api/game/:id/stop', async (req, res) => {
 app.post('/api/game/:id/state', async (req, res) => {
   try {
     const { currentQuestion, showOptions, showAnswer, timerStartedAt, timerDuration } = req.body;
-    
+
     const gameState = await GameState.findOneAndUpdate(
       { questionBankId: req.params.id },
-      { 
+      {
         currentQuestion,
         showOptions,
         showAnswer,
@@ -255,13 +232,13 @@ app.post('/api/game/:id/state', async (req, res) => {
 // Add this route to your existing routes
 app.get('/api/game/:id/state', async (req, res) => {
   try {
-    const gameState = await GameState.findOne({ 
-      questionBankId: req.params.id 
+    const gameState = await GameState.findOne({
+      questionBankId: req.params.id
     });
-    
+
     if (!gameState) {
-      return res.status(404).json({ 
-        message: 'Game state not found' 
+      return res.status(404).json({
+        message: 'Game state not found'
       });
     }
 
@@ -276,8 +253,8 @@ app.get('/api/game/:id/state', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching game state:', error);
-    res.status(500).json({ 
-      message: 'Error fetching game state' 
+    res.status(500).json({
+      message: 'Error fetching game state'
     });
   }
 });
@@ -285,8 +262,8 @@ app.get('/api/game/:id/state', async (req, res) => {
 // Game state routes
 app.get('/api/game/:id/status', async (req, res) => {
   try {
-    const gameState = await GameState.findOne({ 
-      questionBankId: req.params.id 
+    const gameState = await GameState.findOne({
+      questionBankId: req.params.id
     });
 
     res.json({
@@ -296,9 +273,9 @@ app.get('/api/game/:id/status', async (req, res) => {
       showAnswer: gameState?.showAnswer || false
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error fetching game status',
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -309,7 +286,7 @@ app.post('/api/game/:id/showOptions', async (req, res) => {
     const { timerDuration } = req.body;
     await GameState.findOneAndUpdate(
       { questionBankId: req.params.id },
-      { 
+      {
         showOptions: true,
         timerStartedAt: new Date(),
         timerDuration: timerDuration || 15
@@ -336,13 +313,13 @@ app.post('/api/game/:id/showAnswer', async (req, res) => {
 // Add specific answer submission endpoint
 app.post('/api/game/:id/answer', async (req, res) => {
   const { answer, username, gameToken } = req.body;
-  
+
   try {
     // Validate game token
-    const gameState = await GameState.findOne({ 
+    const gameState = await GameState.findOne({
       questionBankId: req.params.id,
       gameToken,
-      isActive: true 
+      isActive: true
     });
 
     if (!gameState) {
@@ -367,13 +344,13 @@ app.post('/api/game/:id/leave', async (req, res) => {
   try {
     const { username } = req.body;
     const { id } = req.params;
-    
+
     // Update game state if needed
     await GameState.findOneAndUpdate(
       { questionBankId: id },
       { $pull: { players: { username } } }
     );
-    
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error handling player leave:', error);
@@ -386,7 +363,7 @@ app.post('/api/game/:id/nextQuestion', async (req, res) => {
   try {
     const gameState = await GameState.findOneAndUpdate(
       { questionBankId: req.params.id },
-      { 
+      {
         currentQuestion: req.body.currentQuestion,
         showOptions: false,
         showAnswer: false,
@@ -428,10 +405,10 @@ app.post('/api/leaderboard/update', async (req, res) => {
 
     await userPoints.save();
 
-    res.json({ 
-      success: true, 
-      points: userPoints.points, 
-      correctAnswers: userPoints.correctAnswers 
+    res.json({
+      success: true,
+      points: userPoints.points,
+      correctAnswers: userPoints.correctAnswers
     });
   } catch (error) {
     console.error('Error updating leaderboard:', error);
@@ -445,7 +422,7 @@ app.get('/api/leaderboard', async (req, res) => {
       .sort({ points: -1, correctAnswers: -1 })
       .select('username points correctAnswers totalAttempts')
       .limit(100);
-    
+
     res.json(leaderboard);
   } catch (error) {
     console.error('Error fetching leaderboard:', error);

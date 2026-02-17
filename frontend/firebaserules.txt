@@ -2,10 +2,51 @@
   "rules": {
     "games": {
       "$gameId": {
-        // Allow read/write if user is authenticated or within 30 minutes of game creation
-        ".read": true,
+        // Allow anyone to write (matches user's original setup, required without Auth)
         ".write": true,
-      
+        
+        // Allow anyone to read
+        ".read": true,
+        
+        // Validation: Must have public, admin, players, gameToken
+        ".validate": "newData.hasChildren(['public', 'admin', 'gameToken'])",
+        
+        // Public Game State (Question, Timer, Status)
+        "public": {
+          ".indexOn": ["isActive"],
+          "currentQuestion": {
+            ".validate": "newData.hasChildren(['question', 'questionIndex'])"
+          },
+          "isActive": {
+             ".validate": "newData.isBoolean()"
+          }
+        },
+
+        // Admin Data
+        "admin": {
+           ".validate": "newData.hasChildren(['username'])"
+        },
+        
+        // Game Token
+        "gameToken": {
+          ".validate": "newData.isString()"
+        },
+
+        // Players Data (Scores, Answers, Presence)
+        "players": {
+          "$username": {
+            "answers": {
+              "$questionIndex": {
+                ".validate": "newData.hasChildren(['answer', 'answeredAt', 'isCorrect'])"
+              }
+            }
+          }
+        },
+        
+        // Presence
+        "presence": {
+           // Inherits read/write
+        }
       }
     },
     "test": {

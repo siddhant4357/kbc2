@@ -364,12 +364,12 @@ const JoinQuestions = () => {
   const handleEndGame = async () => {
     await stopAllSounds();
 
-    const isGameCompleted = currentQuestionIndex === questionBank.questions.length - 1 
+    const isGameCompleted = currentQuestionIndex === questionBank.questions.length - 1
       && lockedAnswer === currentQuestion.correctAnswer;
 
     setGameEndMessage(
-      isGameCompleted 
-        ? 'Congratulations! You have successfully completed the game! 🎉' 
+      isGameCompleted
+        ? 'Congratulations! You have successfully completed the game! 🎉'
         : 'Thank you for playing this game!'
     );
     setShowGameEndPopup(true);
@@ -437,7 +437,7 @@ const JoinQuestions = () => {
           </div>
         </div>
       </header>
-      
+
       <div className="container mx-auto pt-12 sm:pt-16 px-2 sm:px-4 flex flex-col lg:flex-row min-h-screen">
         <div className="flex-1 flex flex-col lg:pl-80 lg:pr-80 order-2 lg:order-1 pb-4">
           <div className="block lg:hidden mb-4">
@@ -467,9 +467,8 @@ const JoinQuestions = () => {
                   <div className="flex items-center gap-4">
                     <button
                       onClick={handleInfiniteTimer}
-                      className={`kbc-button w-8 h-8 flex items-center justify-center text-sm rounded-full ${
-                        isInfiniteTimer ? 'bg-green-600 hover:bg-green-700' : ''
-                      }`}
+                      className={`kbc-button w-8 h-8 flex items-center justify-center text-sm rounded-full ${isInfiniteTimer ? 'bg-green-600 hover:bg-green-700' : ''
+                        }`}
                       title={isInfiniteTimer ? 'Timer is infinite' : 'Click to make timer infinite'}
                     >
                       {isInfiniteTimer ? '∞' : '⏸'}
@@ -508,9 +507,8 @@ const JoinQuestions = () => {
                     <button
                       onClick={() => handleLifeline('fiftyFifty')}
                       disabled={!lifelines.fiftyFifty}
-                      className={`kbc-button w-10 h-10 flex items-center justify-center text-xs ${
-                        !lifelines.fiftyFifty ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
+                      className={`kbc-button w-10 h-10 flex items-center justify-center text-xs ${!lifelines.fiftyFifty ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
                     >
                       50:50
                     </button>
@@ -519,9 +517,8 @@ const JoinQuestions = () => {
                     <button
                       onClick={() => handleLifeline('askAudience')}
                       disabled={!lifelines.askAudience}
-                      className={`kbc-button w-10 h-10 flex items-center justify-center text-xs ${
-                        !lifelines.askAudience ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
+                      className={`kbc-button w-10 h-10 flex items-center justify-center text-xs ${!lifelines.askAudience ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
                     >
                       👥
                     </button>
@@ -533,15 +530,14 @@ const JoinQuestions = () => {
           {currentQuestion && (
             <>
               <div className="question-image mb-4 flex justify-center transition-all duration-300">
-                <div className={`relative w-full max-w-xl ${
-                  showOptions || (selectedOption && !lockedAnswer) 
+                <div className={`relative w-full max-w-xl ${showOptions || (selectedOption && !lockedAnswer)
                     ? 'h-32 sm:h-40 lg:h-66'
                     : 'h-48 sm:h-64 lg:h-88'
-                }`}>
+                  }`}>
                   <img
-                    src={currentQuestion.imageUrl 
-                      ? currentQuestion.imageUrl.startsWith('http') 
-                        ? currentQuestion.imageUrl 
+                    src={currentQuestion.imageUrl
+                      ? currentQuestion.imageUrl.startsWith('http')
+                        ? currentQuestion.imageUrl
                         : `${API_URL}${currentQuestion.imageUrl}`.replace(/([^:]\/)\/+/g, "$1")
                       : defaultQuestionImage}
                     alt="Question"
@@ -551,6 +547,7 @@ const JoinQuestions = () => {
                       if (e.target.src !== defaultQuestionImage) {
                         console.warn('Error loading image, falling back to default');
                         e.target.src = defaultQuestionImage;
+                        e.target.onerror = null;
                       } else {
                         e.target.style.display = 'none';
                         console.error('Error loading default image');
@@ -561,7 +558,7 @@ const JoinQuestions = () => {
               </div>
               <div className="kbc-question-box p-4 sm:p-6 shadow-glow mb-4 max-w-3xl mx-auto w-full z-10">
                 <h2 className="text-xl text-kbc-gold mb-3">
-                  Question {currentQuestionIndex + 1} 
+                  Question {currentQuestionIndex + 1}
                 </h2>
                 <p className="text-white text-lg mb-3">{currentQuestion.question}</p>
               </div>
@@ -574,16 +571,12 @@ const JoinQuestions = () => {
                   <button
                     key={index}
                     onClick={() => handleOptionSelect(option)}
-                    className={`kbc-option ${
-                      selectedOption === option ? 'selected' : ''
-                    } ${
-                      showAnswer && option === currentQuestion.correctAnswer ? 'correct' : ''
-                    } ${
-                      showAnswer && lockedAnswer === option && 
-                      option !== currentQuestion.correctAnswer ? 'incorrect' : ''
-                    } ${
-                      hiddenOptions.includes(option) ? 'opacity-0' : ''
-                    }`}
+                    className={`kbc-option ${selectedOption === option ? 'selected' : ''
+                      } ${showAnswer && option === currentQuestion.correctAnswer ? 'correct' : ''
+                      } ${showAnswer && lockedAnswer === option &&
+                        option !== currentQuestion.correctAnswer ? 'incorrect' : ''
+                      } ${hiddenOptions.includes(option) ? 'opacity-0' : ''
+                      }`}
                     disabled={lockedAnswer || showAnswer || timeLeft === 0}
                   >
                     <span className="option-letter">
@@ -678,9 +671,8 @@ const JoinQuestions = () => {
                 <button
                   onClick={() => handleLifeline('fiftyFifty')}
                   disabled={!lifelines.fiftyFifty}
-                  className={`kbc-button w-12 h-12 flex items-center justify-center text-xs ${
-                    !lifelines.fiftyFifty ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
+                  className={`kbc-button w-12 h-12 flex items-center justify-center text-xs ${!lifelines.fiftyFifty ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                 >
                   50:50
                 </button>
@@ -694,9 +686,8 @@ const JoinQuestions = () => {
                 <button
                   onClick={() => handleLifeline('askAudience')}
                   disabled={!lifelines.askAudience}
-                  className={`kbc-button w-12 h-12 flex items-center justify-center text-xs ${
-                    !lifelines.askAudience ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
+                  className={`kbc-button w-12 h-12 flex items-center justify-center text-xs ${!lifelines.askAudience ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                 >
                   👥
                 </button>
@@ -712,13 +703,12 @@ const JoinQuestions = () => {
               {PRIZE_LEVELS.map((prize, index) => (
                 <div
                   key={prize}
-                  className={`py-1 px-2 rounded-sm transition-all text-center ${
-                    index === currentQuestionIndex
+                  className={`py-1 px-2 rounded-sm transition-all text-center ${index === currentQuestionIndex
                       ? 'bg-kbc-gold text-kbc-dark-blue font-bold shadow-glow'
-                      : index < currentQuestionIndex 
+                      : index < currentQuestionIndex
                         ? 'text-white bg-kbc-blue/20'
                         : 'text-kbc-gold'
-                  }`}
+                    }`}
                 >
                   {prize}
                 </div>
@@ -739,13 +729,13 @@ const JoinQuestions = () => {
                   max="60"
                   value={customTimerInput}
                   onChange={(e) => setCustomTimerInput(Number(e.target.value))}
-                  
+
                   className="kbc-input w-20 text-sm h-7 py-1 px-2"
                   placeholder="Seconds"
                 />
                 <button
                   onClick={handleShowOptions}
-                 
+
                   className="kbc-button1 text-sm h-7 py-1 px-4 w-full"
                 >
                   Start Timer
@@ -755,9 +745,8 @@ const JoinQuestions = () => {
               <div className="flex flex-col items-center gap-1"> {/* Reduced gap */}
                 <button
                   onClick={handleInfiniteTimer}
-                  className={`kbc-button w-7 h-7 flex items-center justify-center text-sm rounded-full ${
-                    isInfiniteTimer ? 'bg-green-600 hover:bg-green-700' : ''
-                  }`}
+                  className={`kbc-button w-7 h-7 flex items-center justify-center text-sm rounded-full ${isInfiniteTimer ? 'bg-green-600 hover:bg-green-700' : ''
+                    }`}
                   title={isInfiniteTimer ? 'Timer is infinite' : 'Click to make timer infinite'}
                 >
                   {isInfiniteTimer ? '∞' : '⏸'}

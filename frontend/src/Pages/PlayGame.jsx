@@ -17,26 +17,25 @@ const getImageUrl = (imageUrl) => {
   if (!imageUrl || imageUrl === '') return defaultQuestionImage;
 
   try {
-    // Ensure the URL is properly formatted
-    const cleanUrl = imageUrl.replace(/([^:]\/)\/+/g, "$1");
-
-    // Handle absolute URLs (e.g., starting with http or https)
-    if (cleanUrl.startsWith('http') || cleanUrl.startsWith('data:')) {
-      return cleanUrl;
+    // Cloudinary URLs (start with http/https) are returned as is
+    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
+      return imageUrl;
     }
 
-    // Handle relative paths (e.g., uploads/questions/)
+    // Legacy local paths
+    const cleanUrl = imageUrl.replace(/([^:]\/)\/+/g, "$1");
     if (cleanUrl.startsWith('/uploads/questions/')) {
       return `${API_URL}${cleanUrl}`;
     }
 
-    // Fallback for other cases
     return `${API_URL}/${cleanUrl}`;
   } catch (error) {
     console.error('Error formatting image URL:', error);
     return defaultQuestionImage;
   }
 };
+
+
 
 const ImageErrorBoundary = React.memo(({ children }) => {
   const [hasError, setHasError] = useState(false);
@@ -53,7 +52,7 @@ const ImageErrorBoundary = React.memo(({ children }) => {
       <div className="w-full h-full flex items-center justify-center bg-kbc-dark-blue/50 rounded-lg">
         <div className="text-center">
           <div className="text-kbc-gold text-sm mb-2">Unable to load image</div>
-          <img 
+          <img
             src={defaultQuestionImage}
             alt="Default"
             className="w-24 h-24 mx-auto opacity-50"
@@ -68,10 +67,11 @@ const ImageErrorBoundary = React.memo(({ children }) => {
 
 const QuestionImage = React.memo(({ imageUrl }) => {
   const [imgSrc, setImgSrc] = useState(() => {
-    if (imageUrl?.startsWith('http') || imageUrl?.startsWith('data:')) {
+    if (!imageUrl) return defaultQuestionImage;
+    if (imageUrl.startsWith('http') || imageUrl.startsWith('data:')) {
       return imageUrl;
     }
-    if (imageUrl?.startsWith('/uploads/questions/')) {
+    if (imageUrl.startsWith('/uploads/questions/')) {
       return `${API_URL}${imageUrl}`;
     }
     return defaultQuestionImage;
@@ -108,9 +108,8 @@ const QuestionImage = React.memo(({ imageUrl }) => {
       <img
         src={imgSrc}
         alt="Question"
-        className={`w-full h-full object-contain rounded-lg shadow-glow transition-opacity duration-300 ${
-          isLoading ? 'opacity-0' : 'opacity-100'
-        }`}
+        className={`w-full h-full object-contain rounded-lg shadow-glow transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'
+          }`}
         style={{ maxHeight: '100%' }} // Add this line
         onError={handleError}
         onLoad={() => {
@@ -125,7 +124,7 @@ const QuestionImage = React.memo(({ imageUrl }) => {
 
 const ExitConfirmDialog = ({ isOpen, onClose, onConfirm, message, isLoading }) => {
   if (!isOpen) return null;
-  
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="kbc-card w-full max-w-md p-4 sm:p-6">
@@ -184,7 +183,7 @@ const PlayGame = () => {
   const [currentQuestion, setCurrentQuestion] = useState(null);
 
 
-  
+
   const [showOptions, setShowOptions] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
@@ -196,7 +195,7 @@ const PlayGame = () => {
   const [timerDuration, setTimerDuration] = useState(30);
   const [isTimerExpired, setIsTimerExpired] = useState(false);
   const [isWaiting, setIsWaiting] = useState(true);
-  const { gameState: firebaseGameState, error: firebaseError, isInitialized, isConnected } = useFirebaseGameState(id);
+  const { gameState: firebaseGameState, error: firebaseError, isInitialized, isConnected } = useFirebaseGameState(id, 'public');
   const timeoutsRef = useRef([]);
   const isNavigatingRef = useRef(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
@@ -208,7 +207,7 @@ const PlayGame = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(null);
   const [selectedBank, setSelectedBank] = useState(null);
 
-    useEffect(() => {
+  useEffect(() => {
     if (currentQuestion) {
       setSelectedOption(null);
       setLockedAnswer(null);
@@ -251,12 +250,12 @@ const PlayGame = () => {
           // Ensure we're using the admin's selected timer duration
           const adminTimerDuration = parseInt(state.timerDuration) || 30;
           const timerStart = parseInt(state.timerStartedAt);
-          
+
           // Ensure we have valid timestamps
           if (!isNaN(timerStart)) {
             setTimerStartedAt(timerStart);
             setTimerDuration(adminTimerDuration);
-            
+
             // Calculate initial time left
             const now = Date.now();
             const elapsedSeconds = Math.floor((now - timerStart) / 1000);
@@ -337,11 +336,11 @@ const PlayGame = () => {
     [processGameState]
   );
 
-  const throttledProcessGameState = useMemo(() => 
+  const throttledProcessGameState = useMemo(() =>
     throttle((state) => {
       if (!state || isNavigatingRef.current || !isInitialized) return;
       processGameState(state).catch(console.error);
-    }, 1000), 
+    }, 1000),
     [processGameState, isInitialized]
   );
 
@@ -350,7 +349,7 @@ const PlayGame = () => {
 
     try {
       const gameRef = ref(db, `games/${id}`);
-      
+
       // Properly structure updates to avoid dots in keys
       const updates = {};
       pendingUpdatesRef.current.forEach(updateObj => {
@@ -460,7 +459,7 @@ const PlayGame = () => {
 
   useEffect(() => {
     const userRef = user ? ref(db, `games/${id}/players/${user.username}`) : null;
-    
+
     if (userRef) {
       const presenceData = {
         isOnline: true,
@@ -638,7 +637,7 @@ const PlayGame = () => {
           if (!response.ok) {
             throw new Error('Failed to update score');
           }
-          
+
           console.log('Score updated successfully');
         } catch (error) {
           console.error('Error updating score:', error);
@@ -667,17 +666,17 @@ const PlayGame = () => {
         const userRef = ref(db, `games/${id}/players/${user.username}`);
         set(userRef, null).catch(console.error); // Don't await, let it happen in background
       }
-      
+
       // Clear local storage
       localStorage.removeItem(`game_${id}_token`);
-      
+
       // Clear timeouts
       timeoutsRef.current.forEach(clearTimeout);
       timeoutsRef.current = [];
 
       // Navigate immediately
       navigate('/dashboard');
-      
+
     } catch (error) {
       console.error('Exit cleanup failed:', error);
     }
@@ -696,10 +695,10 @@ const PlayGame = () => {
 
   const confirmExit = async () => {
     if (isNavigatingRef.current) return;
-    
+
     try {
       isNavigatingRef.current = true;
-      
+
       if (user) {
         await retryOperation(async () => {
           const userRef = ref(db, `games/${id}/players/${user.username}`);
@@ -707,11 +706,11 @@ const PlayGame = () => {
           await set(userRef, null);
         });
       }
-      
+
       localStorage.removeItem(`game_${id}_token`);
       timeoutsRef.current.forEach(timeout => clearTimeout(timeout));
       timeoutsRef.current = [];
-      
+
       navigate('/dashboard');
     } catch (err) {
       console.error('Error during exit:', err);
@@ -758,7 +757,7 @@ const PlayGame = () => {
           </button>
         </div>
 
-          {/* Center content */}
+        {/* Center content */}
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="kbc-card max-w-md w-full p-6 md:p-8 text-center animate-fadeIn">
             <div className="flex justify-center mb-6">
@@ -770,11 +769,11 @@ const PlayGame = () => {
                 />
               </div>
             </div>
-            
+
             <h2 className="text-lg md:text-xl text-kbc-gold font-bold mb-4">
               Waiting for Game to Start
             </h2>
-            
+
             <div className="flex justify-center mb-4">
               <div className="flex gap-2">
                 <span className="w-2 h-2 bg-kbc-gold rounded-full animate-bounce" style={{ animationDelay: '0s' }}></span>
@@ -782,7 +781,7 @@ const PlayGame = () => {
                 <span className="w-2 h-2 bg-kbc-gold rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
               </div>
             </div>
-            
+
             <p className="text-gray-300 text-sm">
               Please stay on this screen. The game will begin automatically.
             </p>
@@ -854,11 +853,10 @@ const PlayGame = () => {
           {currentQuestion && (
             <>
               <div className="question-image mb-4 flex justify-center transition-all duration-300">
-                <div className={`relative w-full max-w-sm ${
-                  showOptions || (selectedOption && !lockedAnswer) 
-                    ? 'h-32 sm:h-40' // Adjusted height for mobile
-                    : 'h-40 sm:h-64' // Adjusted height for mobile
-                }`}>
+                <div className={`relative w-full max-w-sm ${showOptions || (selectedOption && !lockedAnswer)
+                  ? 'h-32 sm:h-40' // Adjusted height for mobile
+                  : 'h-40 sm:h-64' // Adjusted height for mobile
+                  }`}>
                   <ImageErrorBoundary>
                     <QuestionImage imageUrl={currentQuestion.imageUrl} />
                   </ImageErrorBoundary>
@@ -881,14 +879,11 @@ const PlayGame = () => {
                   <button
                     key={index}
                     onClick={() => handleOptionSelect(option)}
-                    className={`kbc-option ${
-                      selectedOption === option ? 'selected' : ''
-                    } ${
-                      showAnswer && option === currentQuestion.correctAnswer ? 'correct' : ''
-                    } ${
-                      showAnswer && selectedOption === option && 
-                      option !== currentQuestion.correctAnswer ? 'incorrect' : ''
-                    }`}
+                    className={`kbc-option ${selectedOption === option ? 'selected' : ''
+                      } ${showAnswer && option === currentQuestion.correctAnswer ? 'correct' : ''
+                      } ${showAnswer && selectedOption === option &&
+                        option !== currentQuestion.correctAnswer ? 'incorrect' : ''
+                      }`}
                     disabled={lockedAnswer || showAnswer || timeLeft === 0}
                     style={{ cursor: 'pointer' }} // Add this to ensure clickable appearance
                   >
@@ -925,8 +920,8 @@ const PlayGame = () => {
         isOpen={showExitDialog}
         onClose={() => setShowExitDialog(false)}
         onConfirm={handleExitConfirm}
-        message={isWaiting ? 
-          "Are you sure you want to leave the waiting room?" : 
+        message={isWaiting ?
+          "Are you sure you want to leave the waiting room?" :
           "Are you sure you want to quit the game?"
         }
         isLoading={isExiting}

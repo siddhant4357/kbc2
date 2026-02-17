@@ -137,7 +137,7 @@ const EditQuestionBank = () => {
       }
 
       const data = await response.json();
-      
+
       const updatedQuestionBank = { ...questionBank };
       updatedQuestionBank.questions[questionIndex].imageUrl = data.imageUrl;
       setQuestionBank(updatedQuestionBank);
@@ -336,7 +336,7 @@ const EditQuestionBank = () => {
     },
     correctOptionBox: {
       padding: '0.75rem',
-      borderRadius: '0.5rem', 
+      borderRadius: '0.5rem',
       backgroundColor: 'rgba(16, 185, 129, 0.2)'
     },
     flexCenter: {
@@ -408,7 +408,7 @@ const EditQuestionBank = () => {
     <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '2rem' }}>
       <div style={{ maxWidth: '56rem', margin: '0 auto' }}>
         <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem' }}>{error}</div>
-        <button 
+        <button
           onClick={() => navigate('/question-bank')}
           style={{ backgroundColor: '#3b82f6', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.5rem', cursor: 'pointer' }}
           onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
@@ -432,7 +432,7 @@ const EditQuestionBank = () => {
         <div style={styles.flexBetween}>
           <div style={styles.flexRow}>
             <BackButton to="/question-bank" />
-            <h1 style={{...styles.kbcTitle, ...styles.flexSpace}}>Edit Question Bank</h1>
+            <h1 style={{ ...styles.kbcTitle, ...styles.flexSpace }}>Edit Question Bank</h1>
           </div>
           <div>
             {isEditing ? (
@@ -447,7 +447,7 @@ const EditQuestionBank = () => {
                 </button>
                 <button
                   onClick={handleSave}
-                  style={{...styles.button, ...styles.greenButton, ...styles.buttonSpace}}
+                  style={{ ...styles.button, ...styles.greenButton, ...styles.buttonSpace }}
                   onMouseOver={(e) => Object.assign(e.currentTarget.style, styles.buttonHover)}
                   onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
@@ -466,7 +466,7 @@ const EditQuestionBank = () => {
                 </button>
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
-                  style={{...styles.button, ...styles.redButton, ...styles.buttonSpace}}
+                  style={{ ...styles.button, ...styles.redButton, ...styles.buttonSpace }}
                   onMouseOver={(e) => Object.assign(e.currentTarget.style, styles.buttonHover)}
                   onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
@@ -479,7 +479,7 @@ const EditQuestionBank = () => {
 
         {questionBank && (
           <div style={{ marginTop: '2rem' }}>
-            <div 
+            <div
               style={styles.cardContainer}
               onMouseOver={(e) => Object.assign(e.currentTarget.style, styles.hoverCard)}
               onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -490,9 +490,9 @@ const EditQuestionBank = () => {
 
             <div style={{ marginTop: '2rem' }}>
               {questionBank.questions.map((question, index) => (
-                <div 
-                  key={index} 
-                  style={{...styles.cardContainer, marginBottom: '1.5rem'}}
+                <div
+                  key={index}
+                  style={{ ...styles.cardContainer, marginBottom: '1.5rem' }}
                   onMouseOver={(e) => Object.assign(e.currentTarget.style, styles.hoverCard)}
                   onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
@@ -509,7 +509,7 @@ const EditQuestionBank = () => {
                         onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
                       />
                     ) : (
-                      <p style={{...styles.text, ...styles.marginBottom}}>{question.question}</p>
+                      <p style={{ ...styles.text, ...styles.marginBottom }}>{question.question}</p>
                     )}
 
                     {/* Image Section */}
@@ -528,17 +528,17 @@ const EditQuestionBank = () => {
                           />
                           <label
                             htmlFor={`image-upload-${index}`}
-                            style={{...styles.button, padding: '0.5rem 1rem', fontSize: '0.875rem', cursor: 'pointer'}}
+                            style={{ ...styles.button, padding: '0.5rem 1rem', fontSize: '0.875rem', cursor: 'pointer' }}
                             onMouseOver={(e) => Object.assign(e.currentTarget.style, styles.buttonHover)}
                             onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                           >
                             {question.imageUrl ? 'Change Image' : 'Upload Image'}
                           </label>
-                          
+
                           {question.imageUrl && (
                             <>
                               <img
-                                src={`${API_URL}${question.imageUrl}`}
+                                src={question.imageUrl.startsWith('http') ? question.imageUrl : `${API_URL}${question.imageUrl}`}
                                 alt="Question"
                                 style={styles.smallImage}
                                 onError={(e) => {
@@ -560,10 +560,10 @@ const EditQuestionBank = () => {
                           )}
                         </div>
                       ) : (
-                        question.imageUrl && (
+                        question.imageUrl ? (
                           <div style={styles.flexCenter}>
                             <img
-                              src={`${API_URL}${question.imageUrl}`}
+                              src={question.imageUrl.startsWith('http') ? question.imageUrl : `${API_URL}${question.imageUrl}`}
                               alt="Question"
                               style={styles.largeImage}
                               onError={(e) => {
@@ -571,6 +571,15 @@ const EditQuestionBank = () => {
                                 e.target.src = defaultQuestionImage; // Fallback image
                                 e.target.onerror = null; // Prevent infinite loop
                               }}
+                            />
+                          </div>
+                        ) : (
+                          // Fallback when no image is present at all
+                          <div style={styles.flexCenter}>
+                            <img
+                              src={defaultQuestionImage}
+                              alt="Default Question"
+                              style={styles.largeImage}
                             />
                           </div>
                         )
@@ -617,8 +626,8 @@ const EditQuestionBank = () => {
           </div>
         )}
       </div>
-{/* Add the delete confirmation dialog */}
-{showDeleteConfirm && (
+      {/* Add the delete confirmation dialog */}
+      {showDeleteConfirm && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
             <h2 style={styles.modalTitle}>Confirm Delete</h2>
@@ -636,14 +645,14 @@ const EditQuestionBank = () => {
               </button>
               <button
                 onClick={handleDelete}
-                style={{...styles.button, ...styles.redButton}}
+                style={{ ...styles.button, ...styles.redButton }}
                 onMouseOver={(e) => Object.assign(e.currentTarget.style, styles.buttonHover)}
                 onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
                 Delete
               </button>
             </div>
-            </div>
+          </div>
         </div>
       )}
     </div>

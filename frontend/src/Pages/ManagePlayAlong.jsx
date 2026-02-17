@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import BackButton from '../components/BackButton';
 import { API_URL } from '../utils/config';
 import { useFirebaseGameState } from '../hooks/useFirebaseGameState';
-import { ref, set } from 'firebase/database';
+import { ref, set, update } from 'firebase/database';
 import { db } from '../utils/firebase';
 
 const ManagePlayAlong = () => {
@@ -310,27 +310,31 @@ const ManagePlayAlong = () => {
       }
 
       const gameData = {
-        isActive: true,
-        admin: user.username,
-        gameToken: Date.now().toString(),
-        currentQuestion: {
-          ...selectedBank.questions[0],
-          questionIndex: 0,
-          imageUrl: selectedBank.questions[0].imageUrl || '',
+        public: {
+          isActive: true,
+          currentQuestion: {
+            ...selectedBank.questions[0],
+            questionIndex: 0,
+            imageUrl: selectedBank.questions[0].imageUrl || '',
+          },
+          showOptions: false,
+          showAnswer: false,
+          timerStartedAt: null,
+          timerDuration: parseInt(timerDuration),
+          startedAt: Date.now(),
+          questionBankId: selectedBank._id,
         },
-        showOptions: false,
-        showAnswer: false,
-        timerStartedAt: null,
-        timerDuration: parseInt(timerDuration),
+        admin: {
+          username: user.username,
+        },
+        gameToken: Date.now().toString(),
         players: {},
-        startedAt: Date.now(),
-        questionBankId: selectedBank._id,
       };
 
       // Update Firebase
       const gameRef = ref(db, `games/${selectedBank._id}`);
       await set(gameRef, gameData);
-      
+
       setGameStarted(true);
       // console.log('Game started successfully');
     } catch (err) {
@@ -342,7 +346,9 @@ const ManagePlayAlong = () => {
   const showNextQuestion = async () => {
     if (gameStarted && currentQuestionIndex < selectedBank.questions.length - 1) {
       const nextIndex = currentQuestionIndex + 1;
-      await updateGameState({
+      // Update public state directly
+      const publicRef = ref(db, `games/${selectedBank._id}/public`);
+      await update(publicRef, {
         currentQuestion: {
           ...selectedBank.questions[nextIndex],
           questionIndex: nextIndex,
@@ -353,7 +359,7 @@ const ManagePlayAlong = () => {
       });
       setCurrentQuestionIndex(nextIndex);
     }
-    
+
   };
 
   const showOptions = async () => {
@@ -362,7 +368,8 @@ const ManagePlayAlong = () => {
     try {
       const duration = Math.max(5, parseInt(timerDuration) || 15);
 
-      await updateGameState({
+      const publicRef = ref(db, `games/${selectedBank._id}/public`);
+      await update(publicRef, {
         showOptions: true,
         timerStartedAt: Date.now(),
         timerDuration: duration,
@@ -379,7 +386,8 @@ const ManagePlayAlong = () => {
     if (!gameStarted) return;
 
     try {
-      await updateGameState({
+      const publicRef = ref(db, `games/${selectedBank._id}/public`);
+      await update(publicRef, {
         showAnswer: true,
         updatedAt: Date.now(),
       });
@@ -392,14 +400,15 @@ const ManagePlayAlong = () => {
 
   const stopGame = async () => {
     try {
-      await updateGameState({
+      const publicRef = ref(db, `games/${selectedBank._id}/public`);
+      await update(publicRef, {
         isActive: false,
         currentQuestion: null,
         showOptions: false,
         showAnswer: false,
         timerStartedAt: null,
         timerDuration: 0,
-        gameStopped: true, // Add this flag
+        gameStopped: true,
       });
       setGameStarted(false);
       navigate('/dashboard');

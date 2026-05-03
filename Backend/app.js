@@ -104,7 +104,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
 // Add rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100
+  max: 5000 // Increased from 100 to allow 500+ players on the same WiFi
 });
 app.use('/api/', limiter);
 
@@ -397,25 +397,20 @@ app.post('/api/leaderboard/update', async (req, res) => {
   try {
     const { username, points, isCorrect } = req.body;
 
-    let userPoints = await UserPoints.findOne({ username });
-
-    if (!userPoints) {
-      userPoints = new UserPoints({
-        username,
-        points: 0,
-        correctAnswers: 0,
-        totalAttempts: 0
-      });
-    }
-
-    userPoints.points += points;
-    if (isCorrect) {
-      userPoints.correctAnswers += 1;
-    }
-    userPoints.totalAttempts += 1;
-    userPoints.lastUpdated = Date.now();
-
-    await userPoints.save();
+    const userPoints = await UserPoints.findOneAndUpdate(
+      { username },
+      {
+        $inc: {
+          points: points,
+          correctAnswers: isCorrect ? 1 : 0,
+          totalAttempts: 1
+        },
+        $set: {
+          lastUpdated: Date.now()
+        }
+      },
+      { new: true, upsert: true }
+    );
 
     res.json({
       success: true,
